@@ -1,0 +1,34 @@
+Package: scrap
+Version: 0.99.0
+Title: Single Cell Reproducibility Across Patients
+Description: scrap is an R package implementing
+	several analyses from Gayo et al. 2017.
+Authors@R: c(person("Michael", "Cole", email = "mbeloc@gmail.com",
+	          role = c("aut", "cre", "cph")))
+Author: Michael Cole [aut, cre, cph]
+Maintainer: Michael Cole <mbeloc@gmail.com>
+License: Artistic-2.0
+Depends:
+  R (>= 3.4)
+Imports:
+  methods,
+  stats,
+  mvtnorm,
+  fpc,
+  cluster,
+  rARPACK
+Suggests:
+  SummarizedExperiment,
+  BiocStyle,
+  scRNAseq,
+  knitr,
+  rmarkdown,
+  testthat,
+  idr
+VignetteBuilder: knitr
+LazyLoad: yes
+biocViews:
+  Transcriptomics,
+  SingleCell
+BugReports: https://github.com/YosefLab/scrap/issues
+RoxygenNote: 6.0.1

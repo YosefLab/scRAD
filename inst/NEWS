@@ -1,0 +1,6 @@
+Changes in version 0.99.0
+=========================
+* Basic R Library Repo Initialized.
+* Files added for clustering and IDR analyses.
+* IDR code borrows most of idr::est.IDR with a few modifications.
+* Most example code for IDR adapted from idr package.

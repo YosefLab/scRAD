@@ -1,0 +1,12 @@
+*.Rapp.history
+*.DS_Store
+*.tar.gz
+*.Rcheck
+.Rproj.user
+.Rhistory
+.RData
+vignettes/figure
+*.Rproj
+vignettes/R_cache
+vignettes/R_figure
+old_scripts
