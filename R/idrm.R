@@ -350,7 +350,7 @@ est.IDRm = function(x,
 #' @param r factor. Sample replicate identity.
 #' @param g factor. Sample cluster identity, passed to
 #'   \code{\link[stats]{kruskal.test}}.
-#' @param var_thresh numeric. Genes are only analyzed if their variance is
+#' @param var_thresh numeric. Molecules are only analyzed if their variance is
 #'   greater than this threshold in all replicate groups.
 #' @param idr_mu a starting value for idr mean (see
 #'   \code{\link[scrap]{est.IDRm}}).
@@ -366,7 +366,7 @@ est.IDRm = function(x,
 #' @return a list with the following elements: \itemize{ \item{idr}{ list.
 #'   \code{\link[scrap]{est.IDRm}} output.}\item{kruskal_pvals}{ matrix of
 #'   Kruskal test p-values used in IDR analysis.} \item{is_replicated}{
-#'   logical. TRUE if gene passes variance filter.} }
+#'   logical. TRUE if molecule passes variance filter.} }
 #'
 #' @importFrom stats kruskal.test var
 #'

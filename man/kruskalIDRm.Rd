@@ -17,7 +17,7 @@ molecule.}
 \item{g}{factor. Sample cluster identity, passed to
 \code{\link[stats]{kruskal.test}}.}
 
-\item{var_thresh}{numeric. Genes are only analyzed if their variance is
+\item{var_thresh}{numeric. Molecules are only analyzed if their variance is
 greater than this threshold in all replicate groups.}
 
 \item{idr_mu}{a starting value for idr mean (see
@@ -36,7 +36,7 @@ greater than this threshold in all replicate groups.}
 a list with the following elements: \itemize{ \item{idr}{ list.
   \code{\link[scrap]{est.IDRm}} output.}\item{kruskal_pvals}{ matrix of
   Kruskal test p-values used in IDR analysis.} \item{is_replicated}{
-  logical. TRUE if gene passes variance filter.} }
+  logical. TRUE if molecule passes variance filter.} }
 }
 \description{
 Perform differential expression analysis (using
