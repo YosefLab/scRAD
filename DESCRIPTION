@@ -16,7 +16,9 @@ Imports:
   mvtnorm,
   fpc,
   cluster,
-  rARPACK
+  rARPACK,
+  igraph,
+  pscl
 Suggests:
   SummarizedExperiment,
   BiocStyle,
