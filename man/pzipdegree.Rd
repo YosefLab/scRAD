@@ -25,7 +25,7 @@ data("fluidigm",package = "scRNAseq")
 
 x = assay(fluidigm)[sample(x = seq_len(nrow(fluidigm)),size = 1000),]
 r = factor(fluidigm$Coverage_Type)
-A = get.repro.tresh.adjacency(x,r)
+A = get.repro.thresh.adjacency(x,r)
 
 library("igraph")
 g = graph.adjacency(A, mode = "undirected")

@@ -29,14 +29,14 @@
 #' 
 #' x = assay(fluidigm)[sample(x = seq_len(nrow(fluidigm)),size = 1000),]
 #' r = factor(fluidigm$Coverage_Type)
-#' A = get.repro.tresh.adjacency(x,r)
+#' A = get.repro.thresh.adjacency(x,r)
 #' 
 #' library("igraph")
 #' g = graph.adjacency(A, mode = "undirected")
 #' 
 #' hist(degree(g))
 
-get.repro.tresh.adjacency = function(x,
+get.repro.thresh.adjacency = function(x,
                                      r,
                                      mad_constant = 1.4826,
                                      var_thresh = 10 ^ -5,
@@ -108,7 +108,7 @@ get.repro.tresh.adjacency = function(x,
 #' 
 #' x = assay(fluidigm)[sample(x = seq_len(nrow(fluidigm)),size = 1000),]
 #' r = factor(fluidigm$Coverage_Type)
-#' A = get.repro.tresh.adjacency(x,r)
+#' A = get.repro.thresh.adjacency(x,r)
 #' 
 #' library("igraph")
 #' g = graph.adjacency(A, mode = "undirected")

@@ -3,7 +3,7 @@
 export(d.mnormal)
 export(e.step.2mnormal)
 export(est.IDRm)
-export(get.repro.tresh.adjacency)
+export(get.repro.thresh.adjacency)
 export(kruskalIDRm)
 export(loglik.2mnormal)
 export(m.step.2mnormal)

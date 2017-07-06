@@ -21,6 +21,9 @@ Imports:
   pscl
 Suggests:
   SummarizedExperiment,
+  NMF,
+  RColorBrewer,
+  Rtsne,
   BiocStyle,
   scRNAseq,
   knitr,
