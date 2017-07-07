@@ -24,32 +24,52 @@ knitr::opts_chunk$set(fig.align="center", cache=FALSE,error=FALSE,
 
 options(getClass.msg=FALSE)
 
-set.seed(1776) ## for reproducibility
+set.seed(1237) ## for reproducibility
 
 library(scrap)
 library(SummarizedExperiment)
 library(Rtsne)
 library(RColorBrewer)
 library(NMF)
+library(igraph)
 
 ```
 
 # Introduction
 
-## Loading Data
+Multiple-organism study designs present many challenges, but they can offer
+unique benefits. By increasing the number of cells collected from a single
+organism, we may improve our understanding of that specific biological system;
+it may not necessarily guarantee that our understanding will extend to similar
+organisms. If the goal of our analysis is prediction made on related organisms,
+it is important to prioritize reproducibility across multiple sample organisms.
 
-We are currently working from a personal path:
+In this vignette we will step through an analysis of single-cell RNA-Seq data
+collected from 3 human patients, demonstrating how these principles of
+reproducibility can guide the study.
+
+## Dendritic Cells in Elite Controllers
+
+As a non-model organisms, humans are extremely difficult to study. Depending on
+the biological system under study they can exhibit extremely diverse biological
+phenomena, each a complex product of diverse genetics, behavior, exposure and
+environment.
+
+In this vignette we consider a data set of cells collected from 3 Elite
+Controllers (ECs). Some of the cells have been exposed to pseudotyped HIV-1 for
+48 hours, while the rest have been exposed to a media control for the same
+period of time.
 
 ```{r datain}
 
 # Load scRNA-Seq (Normalized and log-tranformed)
 load(file = "~/Dropbox/2016 Gayo Single Cell DC HIV/Analysis/normleDat.Rda")
 
-# Rename patients
+# Rename Patients
 colData(normleDat)$patient = c(1, 3, 2)[colData(normleDat)$patient]
 colData(normleDat)$patient = factor(paste0("P",colData(normleDat)$patient))
 
-## ------ Select 48 Hour Cells
+# Select 48 Hour Cells
 normleDat_late = normleDat[, colData(normleDat)$timepoint == "48H"]
 normleDat_late = normleDat_late[apply(assay(normleDat_late), 1, var) > 0, ]
 
@@ -57,7 +77,24 @@ normleDat_late = normleDat_late[apply(assay(normleDat_late), 1, var) > 0, ]
 
 # Clustering
 
+When performing single-cell analysis across multiple organisms, it is often
+important to compare cells across patients - i.e. quantify the extent to which
+samples from different organisms are representative of the "same" cell state.
+This can be a challenging task, especially when cells occupy a high-dimensional
+expression manifold: there may be biologically meaningful differences in the
+expression profiles between similar cells collected from different organisms.
+Additionally there may be batch effects due to subtle differences in extraction
+or sample processing; data adjustments for removing these technical artifacts
+(e.g. normalization) are beyond the scope of this vignette (for more info see
+the `scone` package on
+[Bioconductor](http://bioconductor.org/packages/scone/)).
+
 ## PAM Clustering via Dimension Reduction
+
+`pamkd` performs Partitioning Around Medoid (PAM) clustering over a range of
+cluster number following Principal Components Analysis (PCA). By clustering
+over a range of dimension, this function selects a dimension for the data that
+maximizes the cluster number.
 
 ```{r cluster}
 
@@ -72,11 +109,22 @@ pamkd_obj = pamkd(
 
 ```
 
+In the call above, we have set the following parameters:
+
+* maxk = 10. Consider a maximum of 10 PAM clusters. * maxd = 50. Consider a
+maximum of 50 Principal Components. * to_log = FALSE. Data is already
+log-transformed. * pca_center = TRUE. Expression data rows (genes) are centered
+prior to SVD. * pca_scale = TRUE. Genes are scaled to unit variance prior to
+SVD.
+
 ## Visualizing Results with tSNE
+
+An advantage of the approach above is that we are left with a small number of
+Principal Components for use in non-linear dimension reduction techniques such
+a tSNE.
 
 ```{r tsne}
 
-set.seed(1237)
 tsne_obj = Rtsne(pamkd_obj$Y,
                         pca = FALSE,
                         max_iter = 5000,
@@ -136,9 +184,24 @@ A = get.repro.thresh.adjacency(x = assay(normleDat_late),
 
 ```{r hub}
 
-is_hub = p.adjust(pzipdegree(igraph::graph.adjacency(A,
-                                                     mode = "undirected")),
-                  method = "bonferroni") < 0.01
+g = graph.adjacency(A,mode = "undirected")
+is_hub = p.adjust(pzipdegree(g), method = "bonferroni") < 0.01
+
+# Plot hubs
+g_list = decompose(g)
+g_big = g_list[order(sapply(g_list,vcount),decreasing = TRUE)][[1]]
+is_hub_big = V(g_big)$name %in% names(which(is_hub)) 
+plot(g_big,vertex.size = 1, vertex.color = "red",
+     layout = layout_nicely(g_big),
+     vertex.label = "",
+     vertex.shape = c("none","circle")[1 + is_hub_big],
+     vertex.frame.color = "red")
+
+```
+
+## Module Clustering
+
+```{r hubclust}
 
 # Compute hub correlations per Replicate
 rep_cor_list = sapply(levels(colData(normleDat_late)$patient),
@@ -150,12 +213,6 @@ rep_cor_list = sapply(levels(colData(normleDat_late)$patient),
 
 # Median hub correlations
 mediancor = apply(simplify2array(rep_cor_list), 1:2, median)
-
-```
-
-## Module Clustering
-
-```{r hubclust}
 
 hc = hclust(dist(1 - cor(mediancor,
                          method = "pearson")),
@@ -198,6 +255,137 @@ hm_list = sapply(levels(colData(normleDat_late)$patient),
 )
 
 ```
+
+# IDR
+
+```{r idr2}
+
+is_included = !clustering %in% "c2"
+x = assay(normleDat_late)[, is_included]
+r = factor(c("P12",
+             "P3")[1 + (colData(normleDat_late)$patient[is_included] == "P3")])
+g = factor((clustering %in% "c1")[is_included])
+idrm_kruskal_pool = kruskalIDRm(x, r, g)
+
+```
+
+```{r idr3}
+
+r = colData(normleDat_late)$patient[is_included]
+idrm_kruskal = kruskalIDRm(x, r, g)
+
+```
+
+```{r lmbatch}
+
+lmbatch_list = apply(
+  assay(normleDat_late)[, is_included], 1,
+  function(y) {
+    lm(y ~ g + factor(colData(normleDat_late)$patient[is_included],
+                      levels = c("P3", "P1", "P2")))
+    })
+p_val_matrix_batch  = unlist(lapply(lmbatch_list, function(x) {
+  coefficients(summary(x))[2, 4]
+}))
+
+```
+
+```{r idrvidr}
+
+IDR = idrm_kruskal_pool$idr$IDR
+names(IDR) = rownames(idrm_kruskal_pool$kruskal_pvals)[idrm_kruskal_pool$is_replicated]
+IDRm = idrm_kruskal$idr$IDR
+names(IDRm) = rownames(idrm_kruskal$kruskal_pvals)[idrm_kruskal$is_replicated]
+
+gnoms = intersect(names(IDR), names(IDRm))
+IDR = IDR[gnoms]
+IDRm = IDRm[gnoms]
+
+gtype0 = factor(paste((-log10(IDR) > 2), (-log10(IDRm)  > 2)))
+gcols0 = c("grey", "blue", "red", "purple")[gtype0]
+
+plot(
+  -log10(IDR),
+  -log10(IDRm),
+  pch = 21,
+  bg = gcols0,
+  main = "Differential Expression: c1 vs c3-5, per gene",
+  xlab = "-log10(IDR): 2 Replicates (w/ Pooling)",
+  ylab = "-log10(IDR): 3 Replicates (w/o Pooling)"
+)
+abline(v = 2, col = "red", lty = 2)
+abline(h = 2, col = "blue", lty = 2)
+abline(0, 1, lty = 2, col = "black")
+legend(
+  "topleft",
+  legend = paste(
+    c("no rep2, no rep3", "no rep2, rep3", "rep3, no rep2", "rep2, rep3"),
+    "n =",
+    table(gtype0)
+  ),
+  fill = c("grey", "blue", "red", "purple")
+)
+
+```
+
+```{r idr2vpval}
+
+pvaltrad = p.adjust(p_val_matrix_batch[gnoms], method = "bonferroni")
+
+gtype = factor(paste((-log10(pvaltrad) > 2), (-log10(IDR)  > 2)))
+gcols = c("grey", "blue", "red", "purple")[gtype]
+
+plot(
+  -log10(pvaltrad),
+  -log10(IDR),
+  pch = 21,
+  bg = gcols,
+  main = "Differential Expression: c1 vs c3-5, per gene",
+  xlab = "-log10(Bonferroni DE p-value); all samples w/batch term",
+  ylab = "-log10(IDR): 2 Replicates (w/ Pooling)"
+)
+abline(v = 2, col = "red", lty = 2)
+abline(h = 2, col = "blue", lty = 2)
+legend(
+  "bottomright",
+  legend = paste(
+    c("no sig. no rep.", "no sig. rep.", "sig. no rep.", "sig. rep."),
+    "n =",
+    table(gtype)
+  ),
+  fill = c("grey", "blue", "red", "purple")
+)
+
+```
+
+```{r idr3vpval}
+gtypem = factor(paste((-log10(pvaltrad) > 2), (-log10(IDRm)  > 2)))
+gcolsm = c("grey", "blue", "red", "purple")[gtypem]
+
+plot(
+  -log10(pvaltrad),
+  -log10(IDRm),
+  pch = 21,
+  bg = gcolsm,
+  main = "Differential Expression: c1 vs c3-5, per gene",
+  xlab = "-log10(Bonferroni DE p-value); all samples w/batch term",
+  ylab = "-log10(IDR): 3 Replicates"
+)
+abline(v = 2, col = "red", lty = 2)
+abline(h = 2, col = "blue", lty = 2)
+
+legend(
+  "bottomright",
+  legend = paste(
+    c("no sig. no rep.", "no sig. rep.", "sig. no rep.", "sig. rep."),
+    "n =",
+    table(gtypem)
+  ),
+  fill = c("grey", "blue", "red", "purple")
+)
+
+```
+
 # Session Info
 
 ```{r session}

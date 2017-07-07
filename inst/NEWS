@@ -6,3 +6,5 @@ Changes in version 0.99.0
 * Most example code for IDR adapted from idr package.
 * Added reproducible module analysis utilities,
 * Initialized vignette.
+* Added vignette text.
+* Added marker wrapper function.
