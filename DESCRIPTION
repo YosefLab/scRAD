@@ -1,6 +1,6 @@
-Package: scrap
+Package: scrad
 Version: 0.99.0
-Title: Single Cell Reproducibility Across Patients
+Title: Single Cell Reproducibility Across Donors
 Description: scrap is an R package implementing
 	several analyses from Gayo et al. 2017.
 Authors@R: c(person("Michael", "Cole", email = "mbeloc@gmail.com",
@@ -18,7 +18,8 @@ Imports:
   cluster,
   rARPACK,
   igraph,
-  pscl
+  pscl,
+  VennDiagram
 Suggests:
   SummarizedExperiment,
   NMF,

@@ -40,7 +40,7 @@ get.repro.thresh.adjacency = function(x,
                                      r,
                                      mad_constant = 1.4826,
                                      var_thresh = 10 ^ -5,
-                                     pair_pthresh = 0.1) {
+                                     pair_pthresh = 0.01) {
   # Only test  that vary in all replicate pops
   is_var = rowSums(sapply(levels(r), function(p) {
     apply(x[, r == p], 1, stats::var)

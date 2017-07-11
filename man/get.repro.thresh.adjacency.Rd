@@ -5,7 +5,7 @@
 \title{Reproducible Module analysis: Molecule Adjacency Matrix}
 \usage{
 get.repro.thresh.adjacency(x, r, mad_constant = 1.4826, var_thresh = 10^-5,
-  pair_pthresh = 0.1)
+  pair_pthresh = 0.01)
 }
 \arguments{
 \item{x}{an n by m numeric matrix, where m = num of samples, n = num of 

@@ -4,10 +4,10 @@
 \alias{getMarkers}
 \title{Reproducible Marker Prediction}
 \usage{
-getMarkers(x, r, g, external_markers = NULL, de_idr_thresh = 0.01,
-  module_bonf_thresh = 0.01, var_thresh = 10^-5, mad_constant = 1.4826,
-  pair_pthresh = 0.1, idr_mu = 2, idr_sigma = 2, idr_rho = 0.5,
-  idr_p = 0.01)
+getMarkers(x, r, g, r_de = r, g_target = NULL, external_markers = NULL,
+  de_idr_thresh = 0.01, module_bonf_thresh = 0.01, var_thresh = 10^-5,
+  mad_constant = 1.4826, pair_pthresh = 0.01, idr_mu = 2, idr_sigma = 2,
+  idr_rho = 0.5, idr_p = 0.01, plot_venn = FALSE)
 }
 \arguments{
 \item{x}{an n by m numeric matrix, where m = num of samples, n = num of 
@@ -16,7 +16,13 @@ molecule.}
 
 \item{r}{factor. Sample replicate identity.}
 
-\item{g}{factor. Sample cluster identity.}
+\item{g}{factor. Sample cluster identity. NA samples are ignored in de.}
+
+\item{r_de}{factor. If specified, use this argument as de analysis sample
+replicate identity instead of \code{r}.}
+
+\item{g_target}{character. If not null, only include genes up-regulated in
+this cluster.}
 
 \item{external_markers}{character. If not NULL, only return markers if they
 are included in this argument.}
@@ -48,6 +54,8 @@ a two-sided p-value below this threshold.}
 
 \item{idr_p}{a starting value for the proportion of the reproducible tests 
 (see \code{\link[scrap]{est.IDRm}}).}
+
+\item{plot_venn}{if TRUE, plot venn diagram of marker candidates.}
 }
 \value{
 character. Genes in the intersection of de, modules, and (optional)
@@ -64,6 +72,6 @@ data("fluidigm",package = "scRNAseq")
 x = assay(fluidigm)[sample(x = seq_len(nrow(fluidigm)),size = 1000),]
 r = factor(fluidigm$Coverage_Type)
 g = factor(fluidigm$Biological_Condition)
-getMarkers(x,r,g,de_idr_thresh = 0.01)
+getMarkers(x,r,g)
 
 }
