@@ -1,2 +1,2 @@
-# scrad
-Single-Cell Reproducibility Across Donors
+# scider
+Single-Cell Investigation of Donor Expression Reproducibility

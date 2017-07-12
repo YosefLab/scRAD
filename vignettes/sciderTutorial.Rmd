@@ -1,5 +1,5 @@
 ---
-title: "scRAD: Single-Cell Reproducibility Across Donors"
+title: "scider: Single-Cell Investigation of Donor Expression Reproducibility"
 author: "Michael Cole"
 date: "`r Sys.Date()`"
 bibliography: bibFile.bib
@@ -26,7 +26,7 @@ options(getClass.msg=FALSE)
 
 set.seed(1237) ## for reproducibility
 
-library(scrad)
+library(scider)
 library(SummarizedExperiment)
 library(Rtsne)
 library(RColorBrewer)
@@ -383,15 +383,18 @@ legend("bottomright",
 
 # Irreproducible Discovery Rate and Differential Expression
 
-Below we will consider three methods for calling differential expression between `c1` cells and `c3-5` cells.
+Below we will consider three methods for calling differential expression
+between `c1` cells and `c3-5` cells.
 
-NOTE: POWER ANALYSIS
-NOTE: Simulations for interaction
-NOTE: Like some feedback from other people in the lab
+NOTE: POWER ANALYSIS NOTE: Simulations for interaction NOTE: Like some feedback
+from other people in the lab
 
 ## Ordinary Least-Squares Regression with Patient Term
 
-Our first method is based on a simple regression model. For each gene we estimate a separate offset, cluster effect (`c1` vs `c3-5`), and patient effects (`P1`/`P2` vs `P3`) to model the expression of that gene across all cells in th study.
+Our first method is based on a simple regression model. For each gene we
+estimate a separate offset, cluster effect (`c1` vs `c3-5`), and patient
+effects (`P1`/`P2` vs `P3`) to model the expression of that gene across all
+cells in th study.
 
 ```{r lm}
 
@@ -429,6 +432,26 @@ data itself. One problem with this simple model is that it does not accomodate
 interactions: there is no attribution of patient-specific differential
 expression.
 
+## Irreproducible Discovery Rate
+
+Rather than simply identifying genes that show evidence of differential 
+expression, we may wish to emphasize differential expression that is 
+"reproducible" across donors. The Irreproducible Discovery Rate framework 
+(NOTE: CITE) offers methods for comparing results of replicate analyses: e.g. 
+differential expression analyses performed separately for each donor. Given a 
+list of significance scores (e.g. -log(p-value)), for each donor, we can fit 
+tests to a 2-component mixture model: tests are either part of an
+irreproducible component, in which significance rank is uncorrelated across
+donors, or part of a reproducible component in which significance rank is
+correlated and higher on average.
+
+`kruskalIDRm` is a wrapper function for gene-level tests of association
+(Kruskal-Wallis rank sum), followed by IDR analysis on the resulting
+-log(p-value) matrix. In order to call this function, a user must specify
+replicate groups under which association tests are performed. The analysis
+presented in our manuscript pooled cells from patients `P1` and `P2` to form
+two replicate groups: `P12` and `P3`.
+
 ```{r idr2}
 
 r = factor(c(rep("P12",2),"P3")[colData(normleDat_late)$patient[is_included]])
@@ -436,10 +459,27 @@ idrm_kruskal_pool = kruskalIDRm(x, r, g)
 
 ```
 
-```{r idr2vpval}
+The resulting list contains the p-value matrix from differential expression 
+tests, an object containing all IDR results, and a logical indicating which 
+genes were included in the DE analysis; low-gene variance genes are filtered at
+the earliest stage. We can access the gene-level IDR estimates for all genes
+that were tested:
+
+```{r idr2_unpack}
 
 IDR = idrm_kruskal_pool$idr$IDR
 names(IDR) = rownames(idrm_kruskal_pool$kruskal_pvals)[idrm_kruskal_pool$is_replicated]
+
+```
+
+Similar to a false-discovery rate (FDR), these values correspond to the
+cumulative fraction of irreproducible tests (genes) for genes of less or equal 
+irreproducible component membership probability.
+
+Below we plot the relationship between IDR values and adjusted t-test p-values
+from the section above.
+
+```{r idr2vpval}
 
 lm_pvals_adjust = p.adjust(lm_pvals[names(IDR)], method = "bonferroni")
 
@@ -469,6 +509,12 @@ legend(
 
 ```
 
+We can see that 29% of the genes that are called as significantly 
+differentially expressed (adjusted p-value < 0.01) are not reproducibly so (IDR
+< 0.01). On the other hand, only 8% of reproducible tests do not meet the 
+traditional significance threshold. Therefore, the reproducible criterion 
+appears to be be stricter in addition to being more easily interpretable.
+
 ```{r idr3}
 
 r = colData(normleDat_late)$patient[is_included]
@@ -477,9 +523,6 @@ idrm_kruskal = kruskalIDRm(x, r, g)
 ```
 
 ```{r idrvidr}
-
-IDR = idrm_kruskal_pool$idr$IDR
-names(IDR) = rownames(idrm_kruskal_pool$kruskal_pvals)[idrm_kruskal_pool$is_replicated]
 
 IDRm = idrm_kruskal$idr$IDR
 names(IDRm) = rownames(idrm_kruskal$kruskal_pvals)[idrm_kruskal$is_replicated]
