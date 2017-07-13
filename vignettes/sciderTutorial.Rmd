@@ -515,6 +515,14 @@ differentially expressed (adjusted p-value < 0.01) are not reproducibly so (IDR
 traditional significance threshold. Therefore, the reproducible criterion 
 appears to be be stricter in addition to being more easily interpretable.
 
+## Irreproducible Discovery Rate with Many Replicates
+
+In this package we have modified the code from the CRAN 
+[idr](https://cran.r-project.org/web/packages/idr/index.html) package to handle
+more than 2 replicates, as discussed in the authors' original manuscript (NOTE:
+CITE). Using this functionality, we may choose to perform a similar analysis as
+in the previous subsection, but treat each patient as a replicate pool.
+
 ```{r idr3}
 
 r = colData(normleDat_late)$patient[is_included]
@@ -522,14 +530,26 @@ idrm_kruskal = kruskalIDRm(x, r, g)
 
 ```
 
-```{r idrvidr}
+Now we may consider the difference in treating `P1` and `P2` as replicate
+pools. Due to gene filtering, there may be a few genes that are absent from the
+3-way analysis.
 
+```{r idr3_unpack}
+
+# Unpacking IDR values for many replicates
 IDRm = idrm_kruskal$idr$IDR
 names(IDRm) = rownames(idrm_kruskal$kruskal_pvals)[idrm_kruskal$is_replicated]
 
+# Subsetting IDR values over shared tests
 gnoms = intersect(names(IDR), names(IDRm))
 IDR = IDR[gnoms]
 IDRm = IDRm[gnoms]
+
+```
+
+Below we plot log-transformed IDR values from both analyses.
+
+```{r idrvidr}
 
 gtype0 = factor(paste((-log10(IDR) > 2), (-log10(IDRm)  > 2)))
 gcols0 = c("grey", "blue", "red", "purple")[gtype0]
@@ -558,9 +578,17 @@ legend(
 
 ```
 
-# Marker
+We can see from this plot that there are slightly more reproducible tests 
+called in the 3-way analysis. Notice also that the most reproducible tests are
+assigned greater membership probability to the reproducible component in the
+new analysis.
 
-NOTE: Intersect markers with rownames
+# Marker Prediction
+
+In the main manuscript we describe why differentially-expressed hub genes are 
+good biomarker candidates. The `getMarkers` function is a wrapper for IDR-based
+differential expression analysis and reproducible hub identification. The code
+below can be used to reproduce the marker prediction from our main analysis.
 
 ```{r markers}
 
@@ -576,9 +604,10 @@ dbdat = read.table(
   paste0(search_page,"/",search_terms,"?",query_format),
            sep = "\t",quote = "", header = TRUE)
 
+external_markers = intersect(as.character(dbdat$Gene),rownames(x))
 markers = getMarkers(x = x, r = r, r_de = r_de, pair_pthresh = 0.01474,
                  g = g, g_target = "c1",
-                 external_markers = as.character(dbdat$Gene),
+                 external_markers = external_markers,
                  plot_venn = TRUE)
 
 
