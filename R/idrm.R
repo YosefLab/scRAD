@@ -242,8 +242,12 @@ est.IDRm = function(x,
                     eps = 0.001,
                     max.ite = 30)
 {
-  conv <- function(old, new)
-    abs(new - old) < eps * (1 + abs(new))
+  conv <- function(old, new){
+    if(is.infinite(new)){
+      stop("likelihood is infinite: convergence condition invalid")
+    }
+    return(abs(new - old) < eps * (1 + abs(new)))
+  }
   
   # Steps 1-2: Compute cdfs and rescale
   x.cdf.funcs = apply(x, 2, ecdf)
@@ -278,6 +282,9 @@ est.IDRm = function(x,
     while (to.run) {
       e.z <- e.step.2mnormal(z, para$mu, para$sigma,
                              para$rho, para$p)
+      if(all(e.z == 0)){
+        stop("all memberships numerically zero. try new initial params")
+      }
       para <- m.step.2mnormal(z, e.z)
       if (i > 1)
         l.old <- l.new
@@ -285,7 +292,7 @@ est.IDRm = function(x,
                                para$rho, para$p)
       loglik.inner.trace[i] <- l.new
       if (i > 1) {
-        to.run <- !conv(loglik.inner.trace[i - 1], loglik.inner.trace[i])
+          to.run <- !conv(loglik.inner.trace[i - 1], loglik.inner.trace[i])
       }
       i <- i + 1
     }
