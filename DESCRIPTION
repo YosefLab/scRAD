@@ -30,7 +30,12 @@ Suggests:
   knitr,
   rmarkdown,
   testthat,
-  idr
+  idr,
+  Biobase,
+  RCurl,
+  biomaRt,
+  gdata,
+  openxlsx
 VignetteBuilder: knitr
 LazyLoad: yes
 biocViews:

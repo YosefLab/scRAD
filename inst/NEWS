@@ -2,9 +2,8 @@ Changes in version 0.99.0
 =========================
 * Basic R Library Repo Initialized.
 * Files added for clustering and IDR analyses.
-* IDR code borrows most of idr::est.IDR with a few modifications.
+* IDR code borrows most of idr::est.IDR with a few modifications, including error messages and increased max.iter.
 * Most example code for IDR adapted from idr package.
-* Added reproducible module analysis utilities,
-* Initialized vignette.
-* Added vignette text.
+* Added reproducible module analysis utilities, including IDR-based method.
+* Draft of Vignette
 * Added marker wrapper function.

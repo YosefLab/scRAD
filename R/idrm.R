@@ -204,7 +204,7 @@ m.step.2mnormal = function(z, e.z)
 #' @param p	a starting value for the proportion of the reproducible component.
 #' @param eps	Stopping criterion. Iterations stop when the increment of
 #'   log-likelihood is < eps*log-likelihood, Default=0.001.
-#' @param max.ite	Maximum number of iterations. Default=30.
+#' @param max.ite	Maximum number of iterations. Default=200.
 #'
 #' @export
 #'
@@ -240,7 +240,7 @@ est.IDRm = function(x,
                     rho,
                     p,
                     eps = 0.001,
-                    max.ite = 30)
+                    max.ite = 200)
 {
   conv <- function(old, new){
     if(is.infinite(new)){
@@ -285,6 +285,9 @@ est.IDRm = function(x,
       if(all(e.z == 0)){
         stop("all memberships numerically zero. try new initial params")
       }
+      if(all(e.z == 1)){
+        stop("all memberships numerically one. try new initial params")
+      }
       para <- m.step.2mnormal(z, e.z)
       if (i > 1)
         l.old <- l.new
@@ -314,10 +317,12 @@ est.IDRm = function(x,
     if (j == 1)
       to.run <- TRUE
     else {
-      if (j > max.ite)
+      if (j > max.ite){
+        warning("algorithm did not converge: reached max iteration")
         to.run <- FALSE
-      else
+      }else{
         to.run <- !conv(l.old.outer, l.new.outer)
+      }
     }
     j <- j + 1
   }
@@ -360,18 +365,19 @@ est.IDRm = function(x,
 #' @param var_thresh numeric. Molecules are only analyzed if their variance is
 #'   greater than this threshold in all replicate groups.
 #' @param idr_mu a starting value for idr mean (see
-#'   \code{\link[scrap]{est.IDRm}}).
+#'   \code{\link[scider]{est.IDRm}}).
 #' @param idr_sigma	a starting value for the idr standard deviation (see
-#'   \code{\link[scrap]{est.IDRm}}).
+#'   \code{\link[scider]{est.IDRm}}).
 #' @param idr_rho	a starting value for the idr correlation coefficient (see
-#'   \code{\link[scrap]{est.IDRm}}).
+#'   \code{\link[scider]{est.IDRm}}).
 #' @param idr_p	a starting value for the proportion of the reproducible tests
-#'   (see \code{\link[scrap]{est.IDRm}}).
+#'   (see \code{\link[scider]{est.IDRm}}).
+#' @param ...	additional arguments passed to \code{\link[scider]{est.IDRm}}.
 #'
 #' @export
 #'
 #' @return a list with the following elements: \itemize{ \item{idr}{ list.
-#'   \code{\link[scrap]{est.IDRm}} output.}\item{kruskal_pvals}{ matrix of
+#'   \code{\link[scider]{est.IDRm}} output.}\item{kruskal_pvals}{ matrix of
 #'   Kruskal test p-values used in IDR analysis.} \item{is_replicated}{
 #'   logical. TRUE if molecule passes variance filter.} }
 #'
@@ -402,7 +408,9 @@ kruskalIDRm = function(x,
                        idr_mu = 2,
                        idr_sigma = 2,
                        idr_rho = .5,
-                       idr_p = 0.01) {
+                       idr_p = 0.01,
+                       ...
+                       ) {
   is_var = rowSums(sapply(levels(r), function(p) {
     apply(x[, r == p], 1, var)
   }) > var_thresh) == nlevels(r)
@@ -430,7 +438,8 @@ kruskalIDRm = function(x,
     mu = idr_mu,
     sigma = idr_sigma,
     rho = idr_rho,
-    p = idr_p
+    p = idr_p,
+    ...
   )
   list(idr = idr_objm,
        kruskal_pvals = p_val_matrix,

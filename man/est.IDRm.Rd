@@ -5,7 +5,7 @@
 \title{Estimate the irreproducible discovery rate using the copula mixture
 model}
 \usage{
-est.IDRm(x, mu, sigma, rho, p, eps = 0.001, max.ite = 30)
+est.IDRm(x, mu, sigma, rho, p, eps = 0.001, max.ite = 200)
 }
 \arguments{
 \item{x}{an n by m numeric matrix, where m = num of replicates, n = num of
@@ -29,7 +29,7 @@ covariance) of the reproducible component.}
 \item{eps}{Stopping criterion. Iterations stop when the increment of
 log-likelihood is < eps*log-likelihood, Default=0.001.}
 
-\item{max.ite}{Maximum number of iterations. Default=30.}
+\item{max.ite}{Maximum number of iterations. Default=200.}
 }
 \value{
 a list with the following elements: \itemize{ \item{para}{ estimated

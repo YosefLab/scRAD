@@ -1,7 +1,7 @@
-#' Reproducible Module analysis: Molecule Adjacency Matrix
+#' Reproducible Module analysis: Threshold-Based Molecule Adjacency Matrix
 #' 
 #' Generate molecule-molecule adjacency matrix for molecule pairs exhibiting 
-#' reproducible correlations across patients.
+#' reproducibly-large correlations across patients.
 #' 
 #' @param x an n by m numeric matrix, where m = num of samples, n = num of 
 #'   molecules. Numerical values representing the expression level of the 
@@ -59,6 +59,109 @@ get.repro.thresh.adjacency = function(x,
   
   # Matrix of reproducible pairs
   is_rep_pair = apply(pair_pmat < pair_pthresh, 1, all)
+  rep_mat = matrix(
+    0,
+    nrow = nrow(vx),
+    ncol = nrow(vx),
+    dimnames = list(rownames(vx), rownames(vx))
+  )
+  rep_mat[upper.tri(rep_mat)] = is_rep_pair
+  rep_mat = t(rep_mat)
+  rep_mat[upper.tri(rep_mat)] = is_rep_pair
+  
+  rep_mat_full = matrix(
+    0,
+    nrow = nrow(x),
+    ncol = nrow(x),
+    dimnames = list(rownames(x), rownames(x))
+  )
+  rep_mat_full[rownames(vx), rownames(vx)] = rep_mat
+  
+  out_obj = methods::as(rep_mat_full, "dgCMatrix")
+  
+  attributes(out_obj)$is_variable = is_var
+  
+  out_obj
+}
+
+#' Reproducible Module analysis: IDR-Based Molecule Adjacency Matrix
+#' 
+#' Generate molecule-molecule adjacency matrix for molecule pairs exhibiting 
+#' reproducible correlations across patients.
+#' 
+#' @param x an n by m numeric matrix, where m = num of samples, n = num of 
+#'   molecules. Numerical values representing the expression level of the 
+#'   molecule.
+#' @param r factor. Sample replicate identity.
+#' @param mad_constant scale factor passed to \code{\link[stats]{mad}} in 
+#'   scaling z-transformed correlation coefficients.
+#' @param var_thresh numeric. Molecules are only analyzed if their variance is 
+#'   greater than this threshold in all replicate groups.
+#' @param pair_ithresh numeric. Molecule pairs are called "reproducibly 
+#'   correlated" if their z-value corresponds to a two-sided p-value exhibiting
+#'   IDR below this threshold.
+#' @param idr_mu a starting value for idr mean (see
+#'   \code{\link[scider]{est.IDRm}}).
+#' @param idr_sigma	a starting value for the idr standard deviation (see
+#'   \code{\link[scider]{est.IDRm}}).
+#' @param idr_rho	a starting value for the idr correlation coefficient (see
+#'   \code{\link[scider]{est.IDRm}}).
+#' @param idr_p	a starting value for the proportion of the reproducible tests
+#'   (see \code{\link[scider]{est.IDRm}}).
+#' @param ...	additional arguments passed to \code{\link[scider]{est.IDRm}}.
+#'   
+#' @export
+#' 
+#' @return Sparse adjacency matrix (\code{\link[Matrix]{dgCMatrix-class}}) with
+#'   logical is_variable attribute flagging genes included in analysis.
+#'   
+#' @importFrom methods as
+#' @importFrom stats var median mad pnorm cor
+#'   
+#' @examples
+#' library("SummarizedExperiment")
+#' data("fluidigm",package = "scRNAseq")
+#' 
+#' x = assay(fluidigm)[sample(x = seq_len(nrow(fluidigm)),size = 50),]
+#' r = factor(fluidigm$Coverage_Type)
+#' A = get.repro.idr.adjacency(x,r)
+#' 
+#' library("igraph")
+#' g = graph.adjacency(A, mode = "undirected")
+#' 
+#' hist(degree(g))
+
+get.repro.idr.adjacency = function(x,
+                                      r,
+                                      mad_constant = 1.4826,
+                                      var_thresh = 10 ^ -5,
+                                      pair_ithresh = 0.01,
+                                      idr_mu = 1,
+                                      idr_sigma = 0.5,
+                                      idr_rho = 0.5,
+                                      idr_p = 0.5,
+                                      ...) {
+  # Only test  that vary in all replicate pops
+  is_var = rowSums(sapply(levels(r), function(p) {
+    apply(x[, r == p], 1, stats::var)
+  }) > var_thresh) == nlevels(r)
+  
+  vx = x[is_var, ]
+  
+  # All molecule pairs in all replicates
+  pair_pmat = sapply(levels(r), function(p) {
+    cor_mat = stats::cor(t(vx[, r == p]))
+    pair_cor = atanh(cor_mat[upper.tri(cor_mat)])
+    z_cor = (pair_cor - stats::median(pair_cor))
+    z_cor = z_cor / stats::mad(pair_cor, constant = mad_constant)
+    2 * stats::pnorm(-abs(z_cor))
+  })
+  
+  idr_obj = est.IDRm(x = -log10(pair_pmat),mu = idr_mu,sigma = idr_sigma,
+                     rho = idr_rho,p = idr_p,...)
+  
+  # Matrix of reproducible pairs
+  is_rep_pair = idr_obj$IDR < pair_ithresh
   rep_mat = matrix(
     0,
     nrow = nrow(vx),

@@ -26,14 +26,15 @@
 #'   correlated" if, across all replicate groups, their z-value corresponds to 
 #'   a two-sided p-value below this threshold.
 #' @param idr_mu a starting value for idr mean (see 
-#'   \code{\link[scrap]{est.IDRm}}).
+#'   \code{\link[scider]{est.IDRm}}).
 #' @param idr_sigma	a starting value for the idr standard deviation (see 
-#'   \code{\link[scrap]{est.IDRm}}).
+#'   \code{\link[scider]{est.IDRm}}).
 #' @param idr_rho	a starting value for the idr correlation coefficient (see 
-#'   \code{\link[scrap]{est.IDRm}}).
+#'   \code{\link[scider]{est.IDRm}}).
 #' @param idr_p	a starting value for the proportion of the reproducible tests 
-#'   (see \code{\link[scrap]{est.IDRm}}).
+#'   (see \code{\link[scider]{est.IDRm}}).
 #' @param plot_venn	if TRUE, plot venn diagram of marker candidates.
+#' @param ...	additional arguments passed to \code{\link[scider]{est.IDRm}}.
 #'   
 #' @export
 #' 
@@ -69,7 +70,9 @@ getMarkers = function(x,
                       idr_sigma = 2,
                       idr_rho = .5,
                       idr_p = 0.01,
-                      plot_venn = FALSE) {
+                      plot_venn = FALSE,
+                      ...
+                      ) {
   
   # DE
   is_compared = !is.na(g)
@@ -81,7 +84,8 @@ getMarkers = function(x,
     idr_mu = idr_mu,
     idr_sigma = idr_sigma,
     idr_rho = idr_rho,
-    idr_p = idr_p
+    idr_p = idr_p,
+    ...
   )
   
   all_names = rownames(x)[kruskal_idrm_obj$is_replicated]

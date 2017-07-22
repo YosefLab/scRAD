@@ -7,7 +7,7 @@
 getMarkers(x, r, g, r_de = r, g_target = NULL, external_markers = NULL,
   de_idr_thresh = 0.01, module_bonf_thresh = 0.01, var_thresh = 10^-5,
   mad_constant = 1.4826, pair_pthresh = 0.01, idr_mu = 2, idr_sigma = 2,
-  idr_rho = 0.5, idr_p = 0.01, plot_venn = FALSE)
+  idr_rho = 0.5, idr_p = 0.01, plot_venn = FALSE, ...)
 }
 \arguments{
 \item{x}{an n by m numeric matrix, where m = num of samples, n = num of 
@@ -44,18 +44,20 @@ correlated" if, across all replicate groups, their z-value corresponds to
 a two-sided p-value below this threshold.}
 
 \item{idr_mu}{a starting value for idr mean (see 
-\code{\link[scrap]{est.IDRm}}).}
+\code{\link[scider]{est.IDRm}}).}
 
 \item{idr_sigma}{a starting value for the idr standard deviation (see 
-\code{\link[scrap]{est.IDRm}}).}
+\code{\link[scider]{est.IDRm}}).}
 
 \item{idr_rho}{a starting value for the idr correlation coefficient (see 
-\code{\link[scrap]{est.IDRm}}).}
+\code{\link[scider]{est.IDRm}}).}
 
 \item{idr_p}{a starting value for the proportion of the reproducible tests 
-(see \code{\link[scrap]{est.IDRm}}).}
+(see \code{\link[scider]{est.IDRm}}).}
 
 \item{plot_venn}{if TRUE, plot venn diagram of marker candidates.}
+
+\item{...}{additional arguments passed to \code{\link[scider]{est.IDRm}}.}
 }
 \value{
 character. Genes in the intersection of de, modules, and (optional)

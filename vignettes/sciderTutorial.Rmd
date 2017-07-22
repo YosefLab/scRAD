@@ -12,7 +12,7 @@ vignette: >
 
 <!--
 %\VignetteEngine{knitr::rmarkdown}
-%\VignetteIndexEntry{scone Vignette}
+%\VignetteIndexEntry{scider Vignette}
 -->
 
 ```{r options, include=FALSE, cache=FALSE, results='hide', message=FALSE}
@@ -26,12 +26,17 @@ options(getClass.msg=FALSE)
 
 set.seed(1237) ## for reproducibility
 
+library(openxlsx)
 library(scider)
 library(SummarizedExperiment)
 library(Rtsne)
 library(RColorBrewer)
 library(NMF)
 library(igraph)
+library(RCurl)
+library(gdata)
+library(biomaRt)
+library(Biobase)
 
 ```
 
@@ -64,24 +69,30 @@ Controllers (ECs). Some of the cells have been exposed to pseudotyped HIV-1 for
 48 hours, while the rest have been exposed to a media control for the same
 period of time.
 
-NOTE:THESE FILES ARE NOT PART OF THE PACKAGE (YET)
-
 ```{r datain}
 
+table_dir =  paste0(
+  "~/Dropbox/",
+  "2016 Gayo Single Cell DC HIV/",
+  "NBT Submission/",
+  "Submission Files/Tables/"
+  )
+
 # Load scRNA-Seq (Normalized and log-tranformed)
-load(file = "~/Dropbox/2016 Gayo Single Cell DC HIV/Analysis/normleDat.Rda")
+df_meta = read.xlsx(xlsxFile = paste0(table_dir,
+                                 "Gayo_NBT_Table_S1.xlsx"))
+df_expr = read.xlsx(xlsxFile = paste0(table_dir,
+                                 "Gayo_NBT_Table_S2.xlsx"))
 
-# Rename Patients
-colData(normleDat)$patient = c(1, 3, 2)[colData(normleDat)$patient]
-colData(normleDat)$patient = factor(paste0("P",colData(normleDat)$patient))
-
-# Select 48 Hour Cells
-normleDat_late = normleDat[, colData(normleDat)$timepoint == "48H"]
-normleDat_late = normleDat_late[apply(assay(normleDat_late), 1, var) > 0, ]
+is_late = df_meta$timepoint == "48H"
+donor = factor(df_meta$patient[is_late])
+lexpr = t(as.matrix(df_expr[is_late,-1]))
+colnames(lexpr) = df_expr[is_late,1]
+lexpr = lexpr[apply(lexpr, 1, var) > 0, ]
 
 ```
 
-# Clustering Across Patients
+# Clustering Across Donors
 
 When performing single-cell analysis across multiple donors, it is often 
 important to compare cells across them - i.e. quantify the extent to which 
@@ -105,7 +116,7 @@ maximizes the cluster number.
 ```{r cluster}
 
 pamkd_obj = pamkd(
-  assay(normleDat_late),
+  lexpr,
   maxk = 10,
   maxd = 50,
   to_log = FALSE,
@@ -129,11 +140,11 @@ that we have identified 5 clusters across the 3 patients.
 ```{r cluster_show}
 
 table(pamkd_obj$pamobject$clustering,
-      colData(normleDat_late)$patient)
+      donor)
 
 ```
 
-Note that only one cluster, cluster `3`, is unique to any patient. In other 
+Note that only one cluster, cluster `3`, is unique to any donor. In other 
 analyses there could be far more donor-specific clusters. In those cases,
 expert knowledge and/or sophisticated normalization techniques may be necessary
 to merge clusters across subjects.
@@ -159,7 +170,7 @@ below we have reordered cluster names to match the main manuscript.
 
 ```{r plottsne}
 
-patient_pchs = c(21, 22, 24)
+donor_pchs = c(21, 22, 24)
 cluster_cols = c("turquoise1",
                  "darkolivegreen1",
                  "black",
@@ -170,7 +181,7 @@ plot(
   tsne_obj$Y,
   xlim = c(-25, 25),
   ylim = c(-25, 25),
-  pch = patient_pchs[as.numeric(colData(normleDat_late)$patient)],
+  pch = donor_pchs[as.numeric(donor)],
   bg = cluster_cols[pamkd_obj$pam$clustering],
   main = "DC Expression State Manifold at 48H",
   xlab = "tSNE Dim 1",
@@ -178,7 +189,7 @@ plot(
 )
 
 legend("topright",
-       pch = patient_pchs,
+       pch = donor_pchs,
        legend = paste0("P", 1:3))
 
 o = c(1, 3, 5, 4, 2) # Alternative cluster labels
@@ -215,17 +226,17 @@ based on a simple correlation threshold criterion.
 
 ```{r adj}
 
-A = get.repro.thresh.adjacency(x = assay(normleDat_late),
-                               r = colData(normleDat_late)$patient,
+A = get.repro.thresh.adjacency(x = lexpr,
+                               r = donor,
                                pair_pthresh = 0.01474)
 
 ```
 
-For each patient, Pearson correlations are computed across all gene pairs.
+For each donor, Pearson correlations are computed across all gene pairs.
 Resulting pairs are Fisher-transformed, centered and scaled to unit variance
 over the upper-triangular. The choice of `pair_pthresh` corresponds to the
 maximum 2-tailed p-value under a normal null. If a gene-pair falls below this
-threshold in all patients, an undirected edge is drawn between the two genes.
+threshold in all donors, an undirected edge is drawn between the two genes.
 
 ## Hub Identification
 
@@ -255,6 +266,14 @@ plot(g_big,vertex.size = 1, vertex.color = "red",
      vertex.shape = c("none","circle")[1 + is_hub_big],
      vertex.frame.color = "red")
 
+g_hub = graph.adjacency(A[is_hub,is_hub],mode = "undirected")
+
+plot(g_hub, vertex.size = 5, vertex.color = "white",
+     layout = layout.fruchterman.reingold(g_hub),
+     vertex.label = "",
+     vertex.shape = "circle",
+     vertex.frame.color = "blue")
+
 ```
 
 ## Module Clustering
@@ -262,16 +281,16 @@ plot(g_big,vertex.size = 1, vertex.color = "red",
 In the final step of our reproducible module analysis, we aim to cluster hub
 genes into reproducible modules. There are many ways to cluster genes, but
 below we have clustered according to a median hub correlation matrix: the
-element-wise median of all patient-specific hub-hub correlation matrices.
+element-wise median of all donor-specific hub-hub correlation matrices.
 
 ```{r hubclust}
 
-# Compute hub-hub correlations per patient
-rep_cor_list = sapply(levels(colData(normleDat_late)$patient),
+# Compute hub-hub correlations per donor
+rep_cor_list = sapply(levels(donor),
                       simplify = FALSE,
                       function(p) {
-                        cor(t(assay(normleDat_late)[is_hub,
-                              colData(normleDat_late)$patient == p]))
+                        cor(t(lexpr[is_hub,
+                              donor == p]))
                         })
 
 # Median hub correlation matrix
@@ -309,12 +328,12 @@ aheatmap(
 
 From the hierarchical clustering, module `m1` is anti-correlated with both `m2`
 and `m3`, but `m3` forms a uniform sub-module. When we visualize the three
-patient-specific correlation matrices separately we can see that `m1` is very
-robust, while the contrast between `m2` and `m3` softens between patients.
+donor-specific correlation matrices separately we can see that `m1` is very
+robust, while the contrast between `m2` and `m3` softens between donors.
 
-```{r patientcors}
+```{r donorcors}
 
-hm_list = sapply(levels(colData(normleDat_late)$patient),
+hm_list = sapply(levels(donor),
        function(p) {
          aheatmap(
            main = paste("Hub-Gene Correlations in",p),
@@ -340,7 +359,7 @@ and use these as the basis of a tSNE representation:
 
 # Define module score as mean of expression z-scores
 module_scores = t(aggregate(t(apply(
-  assay(normleDat_late)[is_hub, ], 1, scale
+  lexpr[is_hub, ], 1, scale
 )),
 by = list(hub_clustering),
 FUN = mean)[, -1])
@@ -364,7 +383,7 @@ plot(
   tsne_obj_hub$Y,
   xlim = c(-25, 25),
   ylim = c(-25, 25),
-  pch = patient_pchs[as.numeric(colData(normleDat_late)$patient)],
+  pch = donor_pchs[as.numeric(donor)],
   bg = cluster_cols[pamkd_obj$pam$clustering],
   main = "Reproducible DC Expression State Manifold at 48H",
   xlab = "tSNE Dim 1",
@@ -372,7 +391,7 @@ plot(
 )
 
 legend("topright",
-       pch = patient_pchs,
+       pch = donor_pchs,
        legend = paste0("P", 1:3))
 
 legend("bottomright",
@@ -389,24 +408,24 @@ between `c1` cells and `c3-5` cells.
 NOTE: POWER ANALYSIS NOTE: Simulations for interaction NOTE: Like some feedback
 from other people in the lab
 
-## Ordinary Least-Squares Regression with Patient Term
+## Ordinary Least-Squares Regression with donor Term
 
 Our first method is based on a simple regression model. For each gene we
-estimate a separate offset, cluster effect (`c1` vs `c3-5`), and patient
+estimate a separate offset, cluster effect (`c1` vs `c3-5`), and donor
 effects (`P1`/`P2` vs `P3`) to model the expression of that gene across all
 cells in th study.
 
 ```{r lm}
 
 is_included = !clustering %in% "c2"
-x = assay(normleDat_late)[, is_included]
+x = lexpr[, is_included]
 g = factor(c("c1",NA,rep("c3-5",3))[factor(clustering)])[is_included]
 
 # List: One lm fit per gene
 lm_list = apply(
-  assay(normleDat_late)[, is_included], 1,
+  lexpr[, is_included], 1,
   function(y) {
-    lm(y ~ g + factor(colData(normleDat_late)$patient[is_included],
+    lm(y ~ g + factor(donor[is_included],
                       levels = c("P3", "P1", "P2")))
     })
 
@@ -418,7 +437,7 @@ lm_pvals  = unlist(lapply(lm_list, function(x) {
 # Top 
 plot(seq_along(lm_pvals)/(length(lm_pvals)+1),
      sort(lm_pvals),
-     main = "DE: Patient-Adjusted P-value",
+     main = "DE: donor-Adjusted P-value",
      xlab = "Theoretical Quantiles",
      ylab = "Observed Quantiles",
      log = "xy")
@@ -429,7 +448,7 @@ abline(0,1, lty = 2)
 Obviously the p-value distribution is skewed heavily to low values. This is not
 particularly suprising given that the clustering is based on the expression 
 data itself. One problem with this simple model is that it does not accomodate
-interactions: there is no attribution of patient-specific differential
+interactions: there is no attribution of donor-specific differential
 expression.
 
 ## Irreproducible Discovery Rate
@@ -449,12 +468,12 @@ correlated and higher on average.
 (Kruskal-Wallis rank sum), followed by IDR analysis on the resulting
 -log(p-value) matrix. In order to call this function, a user must specify
 replicate groups under which association tests are performed. The analysis
-presented in our manuscript pooled cells from patients `P1` and `P2` to form
+presented in our manuscript pooled cells from donors `P1` and `P2` to form
 two replicate groups: `P12` and `P3`.
 
 ```{r idr2}
 
-r = factor(c(rep("P12",2),"P3")[colData(normleDat_late)$patient[is_included]])
+r = factor(c(rep("P12",2),"P3")[donor[is_included]])
 idrm_kruskal_pool = kruskalIDRm(x, r, g)
 
 ```
@@ -468,7 +487,8 @@ that were tested:
 ```{r idr2_unpack}
 
 IDR = idrm_kruskal_pool$idr$IDR
-names(IDR) = rownames(idrm_kruskal_pool$kruskal_pvals)[idrm_kruskal_pool$is_replicated]
+names(IDR) = rownames(
+  idrm_kruskal_pool$kruskal_pvals)[idrm_kruskal_pool$is_replicated]
 
 ```
 
@@ -521,11 +541,11 @@ In this package we have modified the code from the CRAN
 [idr](https://cran.r-project.org/web/packages/idr/index.html) package to handle
 more than 2 replicates, as discussed in the authors' original manuscript (NOTE:
 CITE). Using this functionality, we may choose to perform a similar analysis as
-in the previous subsection, but treat each patient as a replicate pool.
+in the previous subsection, but treat each donor as a replicate pool.
 
 ```{r idr3}
 
-r = colData(normleDat_late)$patient[is_included]
+r = donor[is_included]
 idrm_kruskal = kruskalIDRm(x, r, g)
 
 ```
@@ -583,6 +603,121 @@ called in the 3-way analysis. Notice also that the most reproducible tests are
 assigned greater membership probability to the reproducible component in the
 new analysis.
 
+## Extensions of IDR Analysis
+
+## Other IDR Applications: Identification of upstream regulators
+
+The IDR framework can be applied to many other kinds of signals. 
+Table S2. Normalized mRNA counts and associated significant hits obtained
+from knockdown of 6 known and 17 candidate signaling regulators, and 121
+transcriptional regulators. The "Normalized" sheet shows the normalized mRNA
+counts for the 128-target genes (including 10 control genes; rows) upon
+knockdown of indicated genes (columns).
+Table S7. Normalized mRNA counts and associated significant hits obtained
+from knockdown of 11 Plk-dependent phosphoproteins. The "Normalized" sheet
+shows the normalized mRNA counts for the 128-target genes (including 10
+control genes; rows) upon knockdown of indicated genes (columns).
+
+```{r get_chev}
+
+urls = paste(paste0("http://www.ncbi.nlm.nih.gov/pmc/articles/",
+  "PMC3809888/bin/NIHMS350287-supplement-Table"),
+  c("S2.xls", "S7.xls"), sep = "_")
+sheet_index = c(2, 3)
+shrna_counts = do.call(cbind, 
+                       lapply(1:2, function(s) {
+                         df = read.xls(urls[s], sheet = sheet_index[s])
+                         x = as.matrix(df[,-1])
+                         rownames(x) = df$Target_genes
+                         x}))
+
+aheatmap(
+  log1p(shrna_counts),
+  main = paste("Normalized mRNA log-counts across",
+               ncol(shrna_counts),
+               "shRNA knockdowns")
+  )
+
+```
+
+```{r map_chev}
+
+gene_map = getLDS(
+  mart = useMart("ENSEMBL_MART_ENSEMBL", 
+                dataset = "mmusculus_gene_ensembl",
+                host = "jul2015.archive.ensembl.org"),
+  attributes = "mgi_symbol",
+  filters = "mgi_symbol", values = rownames(shrna_counts),
+  martL = useMart("ENSEMBL_MART_ENSEMBL", 
+                dataset = "hsapiens_gene_ensembl",
+                host = "jul2015.archive.ensembl.org"),
+  attributesL = "hgnc_symbol",
+  filtersL = "hgnc_symbol", valuesL = rownames(lexpr)
+)
+
+# Select expression sub-matrices for uniquely mapped genes
+uniq_gene_map = gene_map[apply(apply(gene_map,2,isUnique),1,all), ]
+sc_expr = lexpr[uniq_gene_map$HGNC.symbol, ]
+shrna_expr = log(shrna_counts + 1)[uniq_gene_map$MGI.symbol, ]
+
+```
+
+```{r prep_chev}
+
+upstream_scores = -cor(shrna_expr - rowMeans(shrna_expr),
+    sc_expr - rowMeans(sc_expr))
+
+aheatmap(
+  log1p(upstream_scores),
+  annCol = list(clustering),annColors = list(cluster_cols[order(o)]),
+  breaks = 0,
+  main = paste("(Unweighted) Upstream Regulatory Scores for",
+               ncol(shrna_counts),
+               "shRNA knockdowns")
+  )
+
+
+```
+
+
+```{r idr_chev}
+
+is_included = !clustering %in% "c2"
+x = upstream_scores[, is_included]
+g = factor(c("c1", NA, rep("c3-5", 3))[factor(clustering)])[is_included]
+r = factor(c(rep("P12", 2), "P3")[donor[is_included]])
+idrm_kruskal_pool_shrna = kruskalIDRm(x, r, g)
+
+mean_sigs = aggregate(t(x), by = list(cluster = g, pool = r), FUN = mean)
+lfc = colMeans(mean_sigs[, -c(1:2)][mean_sigs$cluster == "c1", ] -
+                 mean_sigs[, -c(1:2)][mean_sigs$cluster != "c1", ])
+
+plot(
+  lfc[rownames(idrm_kruskal_pool_shrna$kruskal_pvals)],
+  -log10(idrm_kruskal_pool_shrna$idr$IDR),
+  pch = 21,
+  bg = 1 + (idrm_kruskal_pool_shrna$idr$IDR < 0.05),
+  main = paste("shRNA Analysis: c1 vs c3-5"),
+  ylab = "-log10(IDR)",
+  xlim = c(-0.5, 0.5),
+  ylim = c(0, 2),
+  xlab = "Mean Difference in Upstream Regulatory Score"
+)
+
+abline(h = -log10(0.05),
+       lty = 2,
+       col = 2)
+
+# Label Tbk1
+is_tbk1 = rownames(idrm_kruskal_pool_shrna$kruskal_pvals) == "Tbk1"
+tbk1_x = lfc[rownames(idrm_kruskal_pool_shrna$kruskal_pvals)][is_tbk1]
+tbk1_y = -log10(idrm_kruskal_pool_shrna$idr$IDR)[is_tbk1]
+lines(c(tbk1_x,tbk1_x + 0.15),c(tbk1_y,tbk1_y))
+points(tbk1_x,tbk1_y,pch = 21,bg = 2)
+text(pos = 4,tbk1_x+ 0.15,tbk1_y,labels = "Tbk1")
+
+```
+
 # Marker Prediction
 
 In the main manuscript we describe why differentially-expressed hub genes are 
@@ -592,10 +727,10 @@ below can be used to reproduce the marker prediction from our main analysis.
 
 ```{r markers}
 
-x = assay(normleDat_late)
+x = lexpr
 g = factor(c("c1",NA,rep("c3-5",3))[factor(clustering)])
-r = colData(normleDat_late)$patient
-r_de = factor(c(rep("P12",2),"P3")[colData(normleDat_late)$patient])
+r = donor
+r_de = factor(c(rep("P12",2),"P3")[donor])
 
 search_page = "http://www.proteinatlas.org/search"
 search_terms = "protein_class%3APredicted+membrane+proteins"

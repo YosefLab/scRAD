@@ -2,7 +2,7 @@
 % Please edit documentation in R/modules.R
 \name{get.repro.thresh.adjacency}
 \alias{get.repro.thresh.adjacency}
-\title{Reproducible Module analysis: Molecule Adjacency Matrix}
+\title{Reproducible Module analysis: Threshold-Based Molecule Adjacency Matrix}
 \usage{
 get.repro.thresh.adjacency(x, r, mad_constant = 1.4826, var_thresh = 10^-5,
   pair_pthresh = 0.01)
@@ -30,7 +30,7 @@ Sparse adjacency matrix (\code{\link[Matrix]{dgCMatrix-class}}) with
 }
 \description{
 Generate molecule-molecule adjacency matrix for molecule pairs exhibiting 
-reproducible correlations across patients.
+reproducibly-large correlations across patients.
 }
 \examples{
 library("SummarizedExperiment")

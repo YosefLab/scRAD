@@ -5,7 +5,7 @@
 \title{Irreproducible Discovery Rate analysis: Differential Expression}
 \usage{
 kruskalIDRm(x, r, g, var_thresh = 10^-5, idr_mu = 2, idr_sigma = 2,
-  idr_rho = 0.5, idr_p = 0.01)
+  idr_rho = 0.5, idr_p = 0.01, ...)
 }
 \arguments{
 \item{x}{an n by m numeric matrix, where m = num of samples, n = num of
@@ -21,20 +21,22 @@ molecule.}
 greater than this threshold in all replicate groups.}
 
 \item{idr_mu}{a starting value for idr mean (see
-\code{\link[scrap]{est.IDRm}}).}
+\code{\link[scider]{est.IDRm}}).}
 
 \item{idr_sigma}{a starting value for the idr standard deviation (see
-\code{\link[scrap]{est.IDRm}}).}
+\code{\link[scider]{est.IDRm}}).}
 
 \item{idr_rho}{a starting value for the idr correlation coefficient (see
-\code{\link[scrap]{est.IDRm}}).}
+\code{\link[scider]{est.IDRm}}).}
 
 \item{idr_p}{a starting value for the proportion of the reproducible tests
-(see \code{\link[scrap]{est.IDRm}}).}
+(see \code{\link[scider]{est.IDRm}}).}
+
+\item{...}{additional arguments passed to \code{\link[scider]{est.IDRm}}.}
 }
 \value{
 a list with the following elements: \itemize{ \item{idr}{ list.
-  \code{\link[scrap]{est.IDRm}} output.}\item{kruskal_pvals}{ matrix of
+  \code{\link[scider]{est.IDRm}} output.}\item{kruskal_pvals}{ matrix of
   Kruskal test p-values used in IDR analysis.} \item{is_replicated}{
   logical. TRUE if molecule passes variance filter.} }
 }
