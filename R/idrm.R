@@ -207,7 +207,7 @@ m.step.2mnormal = function(z, e.z)
 #' @param max.ite	Maximum number of iterations. Default=200.
 #'
 #' @export
-#'
+#' @importFrom idr get.pseudo.mix
 #' @importFrom stats ecdf
 #'
 #' @return a list with the following elements: \itemize{ \item{para}{ estimated

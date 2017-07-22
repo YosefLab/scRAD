@@ -19,7 +19,8 @@ Imports:
   rARPACK,
   igraph,
   pscl,
-  VennDiagram
+  VennDiagram,
+  idr
 Suggests:
   SummarizedExperiment,
   NMF,
@@ -30,7 +31,6 @@ Suggests:
   knitr,
   rmarkdown,
   testthat,
-  idr,
   Biobase,
   RCurl,
   biomaRt,
