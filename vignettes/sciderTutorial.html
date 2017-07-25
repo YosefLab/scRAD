@@ -90,7 +90,7 @@ document.addEventListener("DOMContentLoaded", function() {
 <div id="introduction" class="section level1">
 <h1><span class="header-section-number">1</span> Introduction</h1>
 <p>As single-cell technologies mature and push the boundaries of study resolution and scale, they promise to enrich our understanding of many complex biological systems. In the human disease context, studies of single donors may prove very fruitful in the characterization and cataloging of diverse cell states. While single-subject studies can be used to generate bold hypotheses, these approaches do not guarantee results applicable to other people with related phenotype. If the goal of an analysis is to predict phenomena across a specific phenotype - in humans, mice, or other models - it is important to prioritize reproducibility across multiple sources.</p>
-<p>In this vignette we will step through an analysis of single-cell RNA-Seq data collected from 3 human donors. In Section 2, we model coarse-grained structures in the expression data, discussing the problem of clustering cells across multiple donors. In Section 3, we begin to leverage donor information in order to identify “reproducible gene modules”: axes of expression variation that are common to all patients. Section 4 introduces quantitative tools - based on the Irreproducible Discovery Rate <span class="citation">(Li and Dewey 2011)</span> - for assessing signal reproducibility across donors. Examples from differential expression analysis, differential signature analysis, and correlation analysis demonstrate the general applicability of the framework and utilities. Section 5 summarizes additional tools for meta-analysis applicable to multi-donor studies. Section 6 presents a simple tool for relating modules for the purpose of marker discovery.</p>
+<p>In this vignette we will step through an analysis of single-cell RNA-Seq data collected from 3 human donors. In Section 2, we model coarse-grained structures in the expression data, discussing the problem of clustering cells across multiple donors. In Section 3, we begin to leverage donor information in order to identify “reproducible gene modules”: axes of expression variation that are common to all donors. Section 4 introduces quantitative tools - based on the Irreproducible Discovery Rate <span class="citation">(Li and Dewey 2011)</span> - for assessing signal reproducibility across donors. Examples from differential expression analysis, differential signature analysis, and correlation analysis demonstrate the general applicability of the framework and utilities. Section 5 summarizes additional tools for meta-analysis applicable to multi-donor studies. Section 6 presents a simple tool for relating modules for the purpose of marker discovery.</p>
 <div id="the-data-set-dendritic-cells-in-elite-controllers" class="section level2">
 <h2><span class="header-section-number">1.1</span> The Data Set: Dendritic Cells in Elite Controllers</h2>
 <p>Human systems typically exhibit a diversity of biological phenomena beyond the uncontrolled axes of variation seen in model organisms. Each donor is a complex product of genetics, behavior, exposure and environment.</p>
@@ -117,10 +117,12 @@ lexpr = lexpr[apply(lexpr, 1, var) &gt; 0, ]</code></pre>
 </div>
 <div id="clustering-across-donors" class="section level1">
 <h1><span class="header-section-number">2</span> Clustering Across Donors</h1>
-<p>When performing single-cell analysis across multiple donors, it is often important to compare cells across them - i.e. quantify the extent to which samples from different donors are representative of the “same” cell state. This can be a challenging task, especially when cells occupy a high-dimensional expression manifold: there may be biologically meaningful differences in the expression profiles between similar cells collected from different subjects. Additionally there may be batch effects due to subtle differences in extraction or sample processing; data adjustments for removing these technical artifacts (e.g. normalization) are beyond the scope of this vignette (for more info see the <code>scone</code> package on <a href="http://bioconductor.org/packages/scone/">Bioconductor</a>).</p>
+<p>When performing single-cell analysis across multiple donors, it is often important to compare cells across them, i.e. quantify the extent to which samples from different donors contain cells that are representative of the “same” cell state. While there may be biologically meaningful differences in the expression profiles between similar cells collected from different subjects, characterizing those differences can be a challenging task, especially when cells occupy a high-dimensional expression manifold. For example, some cell states may be represented in greater or lesser number across donors, and some cell states are unique to donors. Additionally, there may be batch effects due to subtle differences in extraction or sample processing. Any effort to decouple these contributions requires careful consideration, and the data adjustments necessary for removing related technical artifacts are beyond the scope of this vignette (for more info see the <code>scone</code> package on <a href="http://bioconductor.org/packages/scone/">Bioconductor</a>). The data in this vignette has been normalized via quantile normalization, and a full discussion of methods and motivations can be found in the supplementary text of Gayo et al. 2017.</p>
 <div id="pam-clustering-via-dimension-reduction" class="section level2">
 <h2><span class="header-section-number">2.1</span> PAM Clustering via Dimension Reduction</h2>
-<p><code>pamkd</code> performs Partitioning Around Medoid (PAM) clustering over a range of cluster number following Principal Components Analysis (PCA). By clustering over a range of dimension, this function selects a dimension for the data that maximizes the cluster number.</p>
+<p>If expression data from multiple batches has been properly normalized, we may attempt to relate cell expression profiles to eachother based on their pairwise distances. In high-dimensional data such as these, many axes of variation are random and noisy: they do not inform us of the underlying cell state. Dimension reduction techniques such as Principal Components Analysis (PCA) allow us to represent the data with a smaller number of features with high signal-to-noise ratios. Distances computed on these features may be used partion or cluster cells according to cell state.</p>
+<p>Partitioning Around Medoid (PAM) is a clustering algorithm that searches for a set of <code>k</code> medoids spanning the data set, mapping each cell to a cluster represented by the closest medoid. Because the number of clusters, <code>k</code>, is unspecified at the beginning of an analysis, it is common to choose a value of <code>k</code> that maximizes the “overall average silhoutte width”: the average over all sample “silhouette” values, quantifying the extent to which a sample clusters with its own cluster over others. This procedure is implemented in <code>pamk</code> exported by the <code>fpc</code> package.</p>
+<p>The <code>pamkd</code> function, introduced here, performs Partitioning Around Medoid (PAM) clustering over a range of clusters, similar to <code>pamk</code>, but it also ranges over a range of principal components, varying the dimension over which distances are computed. After clustering over a range of dimension, this function selects a dimension for the data that maximizes the cluster number.</p>
 <pre class="r"><code>pamkd_obj = pamkd(
   lexpr,
   maxk = 10,
@@ -129,15 +131,15 @@ lexpr = lexpr[apply(lexpr, 1, var) &gt; 0, ]</code></pre>
   pca_center = TRUE,
   pca_scale = TRUE
 )</code></pre>
-<p>In the call above, we have set the following parameters:</p>
+<p>In the call above, we have set the following argument values:</p>
 <ul>
 <li>maxk = 10. Consider a maximum of 10 PAM clusters.</li>
-<li>maxd = 50. Consider a maximum of 50 Principal Components.</li>
+<li>maxd = 50. Consider a maximum of 50 Principal Components (PCs).</li>
 <li>to_log = FALSE. Data is already log-transformed.</li>
-<li>pca_center = TRUE. Expression data rows (genes) are centered prior to SVD.</li>
-<li>pca_scale = TRUE. Genes are scaled to unit variance prior to SVD.</li>
+<li>pca_center = TRUE. Expression data rows (genes) are centered for PCA.</li>
+<li>pca_scale = TRUE. Genes are scaled to unit variance for PCA.</li>
 </ul>
-<p>Looking at the resulting output, under the <code>pamobject</code> return value, we see that we have identified 5 clusters across the 3 patients.</p>
+<p>Inspecting the output, under the <code>pamobject</code> return value, we see that <code>pamkd</code> identified 5 clusters across the 3 donors.</p>
 <pre class="r"><code>table(pamkd_obj$pamobject$clustering,
       donor)</code></pre>
 <pre><code>##    donor
@@ -147,16 +149,17 @@ lexpr = lexpr[apply(lexpr, 1, var) &gt; 0, ]</code></pre>
 ##   3  16   0   0
 ##   4   3  11   7
 ##   5   1  12  13</code></pre>
-<p>Note that only one cluster, cluster <code>3</code>, is unique to any donor. In other analyses there could be far more donor-specific clusters. In those cases, expert knowledge and/or sophisticated normalization techniques may be necessary to merge clusters across subjects.</p>
+<p>Interestingly, only one cluster, cluster <code>3</code>, is unique to any donor; in other analyses there could be far more donor-specific clusters. Cells like cluster 3 may be present in other donors, and single-donor analyses could be used to generate candidate markers for additional experimental exploration. However, the focus of the present analysis is the space of reproducible phenomena.</p>
+<p>Briefly note that selection of maximum values for either <code>k</code> or <code>d</code> should raise doubts about the robustness of the results, as they could depend on our choice of parameter ranges. One way to test this effect is to consider larger values for <code>maxk</code> or <code>maxd</code>.</p>
 </div>
 <div id="visualizing-results-with-tsne" class="section level2">
 <h2><span class="header-section-number">2.2</span> Visualizing Results with tSNE</h2>
-<p>One advantage of the simultaneous <code>k</code> and <code>d</code> selection above is that we are left with a small number of Principal Components (PCs) that are well-suited for non-linear dimension reduction techniques such a tSNE.</p>
+<p>One advantage of the simultaneous <code>k</code> and <code>d</code> selection above is that we are left with a small number of PCs that are well-suited for non-linear dimension reduction techniques that are designed for visual representation (e.g. tSNE).</p>
 <pre class="r"><code>tsne_obj = Rtsne(pamkd_obj$Y,
                         pca = FALSE,
                         max_iter = 5000,
                         verbose = FALSE)</code></pre>
-<p>Because these PCs were sufficient in resolving the five clusters, we expect that faithful dimension reduction should preserve the clustering. In the plot below we have reordered cluster names to match the main manuscript.</p>
+<p>Because 7 PCs optimally resolved the five clusters reported by <code>pamkd</code>, we expect further dimension reduction techniques to preserve that clustering. Therefore tSNE may provides us with a 2-dimensional representation of clustering in 7-dimensions. Below we can see that tSNE faithfully represents our clusters. In the plot below we have reordered cluster names to match the main manuscript.</p>
 <pre class="r"><code>donor_pchs = c(21, 22, 24)
 cluster_cols = c(&quot;turquoise1&quot;,
                  &quot;darkolivegreen1&quot;,
@@ -528,7 +531,7 @@ geo_set = getGEO(&quot;GSE17721&quot;)[[1]]</code></pre>
 <pre><code>## Found 1 file(s)</code></pre>
 <pre><code>## GSE17721_series_matrix.txt.gz</code></pre>
 <pre><code>## File stored at:</code></pre>
-<pre><code>## /var/folders/94/gwxvd19d6jb__ffz7r9r0lj40000gp/T//RtmpZL0INi/GPL8759.soft</code></pre>
+<pre><code>## /var/folders/94/gwxvd19d6jb__ffz7r9r0lj40000gp/T//RtmpOJfsiH/GPL8759.soft</code></pre>
 <pre><code>## Warning in read.table(file = file, header = header, sep = sep, quote =
 ## quote, : not all columns named in 'colClasses' exist</code></pre>
 <pre class="r"><code># Aggregate by sample biotype and gene symbol

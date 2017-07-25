@@ -58,7 +58,7 @@ collected from 3 human donors. In Section 2, we model coarse-grained structures
 in the expression data, discussing the problem of clustering cells across 
 multiple donors. In Section 3, we begin to leverage donor information in order 
 to identify "reproducible gene modules": axes of expression variation that are 
-common to all patients. Section 4 introduces quantitative tools - based on the 
+common to all donors. Section 4 introduces quantitative tools - based on the 
 Irreproducible Discovery Rate [@li2011] - for assessing signal 
 reproducibility across donors. Examples from differential expression analysis, 
 differential signature analysis, and correlation analysis demonstrate the 
@@ -106,23 +106,48 @@ lexpr = lexpr[apply(lexpr, 1, var) > 0, ]
 # Clustering Across Donors
 
 When performing single-cell analysis across multiple donors, it is often 
-important to compare cells across them - i.e. quantify the extent to which 
-samples from different donors are representative of the "same" cell state. This
-can be a challenging task, especially when cells occupy a high-dimensional 
-expression manifold: there may be biologically meaningful differences in the 
-expression profiles between similar cells collected from different subjects. 
-Additionally there may be batch effects due to subtle differences in extraction
-or sample processing; data adjustments for removing these technical artifacts 
-(e.g. normalization) are beyond the scope of this vignette (for more info see 
-the `scone` package on 
-[Bioconductor](http://bioconductor.org/packages/scone/)).
+important to compare cells across them, i.e. quantify the extent to which 
+samples from different donors contain cells that are representative of the 
+"same" cell state. While there may be biologically meaningful differences in 
+the expression profiles between similar cells collected from different 
+subjects, characterizing those differences can be a challenging task, 
+especially when cells occupy a high-dimensional expression manifold. For 
+example, some cell states may be represented in greater or lesser number across
+donors, and some cell states are unique to donors. Additionally, there may be 
+batch effects due to subtle differences in extraction or sample processing. Any
+effort to decouple these contributions requires careful consideration, and the 
+data adjustments necessary for removing related technical artifacts are beyond
+the scope of this vignette (for more info see the `scone` package on
+[Bioconductor](http://bioconductor.org/packages/scone/)). The data in this
+vignette has been normalized via quantile normalization, and a full discussion
+of methods and motivations can be found in the supplementary text of Gayo et
+al. 2017.
 
 ## PAM Clustering via Dimension Reduction
 
-`pamkd` performs Partitioning Around Medoid (PAM) clustering over a range of
-cluster number following Principal Components Analysis (PCA). By clustering
-over a range of dimension, this function selects a dimension for the data that
-maximizes the cluster number.
+If expression data from multiple batches has been properly normalized, we may 
+attempt to relate cell expression profiles to eachother based on their pairwise
+distances. In high-dimensional data such as these, many axes of variation are 
+random and noisy: they do not inform us of the underlying cell state. Dimension
+reduction techniques such as Principal Components Analysis (PCA) allow us to 
+represent the data with a smaller number of features with high signal-to-noise 
+ratios. Distances computed on these features may be used partion or cluster
+cells according to cell state. 
+
+Partitioning Around Medoid (PAM) is a clustering algorithm that searches for a 
+set of `k` medoids spanning the data set, mapping each cell to a cluster 
+represented by the closest medoid. Because the number of clusters, `k`, is 
+unspecified at the beginning of an analysis, it is common to choose a value of 
+`k` that maximizes the "overall average silhoutte width": the average over all 
+sample "silhouette" values, quantifying the extent to which a sample clusters 
+with its own cluster over others. This procedure is implemented in `pamk`
+exported by the `fpc` package.
+
+The `pamkd` function, introduced here, performs Partitioning Around Medoid
+(PAM) clustering over a range of clusters, similar to `pamk`, but it also
+ranges over a range of principal components, varying the dimension over which
+distances are computed. After clustering over a range of dimension, this
+function selects a dimension for the data that maximizes the cluster number.
 
 ```{r cluster}
 
@@ -137,16 +162,16 @@ pamkd_obj = pamkd(
 
 ```
 
-In the call above, we have set the following parameters:
+In the call above, we have set the following argument values:
 
-* maxk = 10. Consider a maximum of 10 PAM clusters. 
-* maxd = 50. Consider a maximum of 50 Principal Components.
+* maxk = 10. Consider a maximum of 10 PAM clusters.
+* maxd = 50. Consider a maximum of 50 Principal Components (PCs).
 * to_log = FALSE. Data is already log-transformed.
-* pca_center = TRUE. Expression data rows (genes) are centered prior to SVD.
-* pca_scale = TRUE. Genes are scaled to unit variance prior to SVD.
+* pca_center = TRUE. Expression data rows (genes) are centered for PCA.
+* pca_scale = TRUE. Genes are scaled to unit variance for PCA.
 
-Looking at the resulting output, under the `pamobject` return value, we see
-that we have identified 5 clusters across the 3 patients. 
+Inspecting the output, under the `pamobject` return value, we see 
+that `pamkd` identified 5 clusters across the 3 donors.
 
 ```{r cluster_show}
 
@@ -155,16 +180,22 @@ table(pamkd_obj$pamobject$clustering,
 
 ```
 
-Note that only one cluster, cluster `3`, is unique to any donor. In other 
-analyses there could be far more donor-specific clusters. In those cases,
-expert knowledge and/or sophisticated normalization techniques may be necessary
-to merge clusters across subjects.
+Interestingly, only one cluster, cluster `3`, is unique to any donor; in other 
+analyses there could be far more donor-specific clusters. Cells like cluster 3
+may be present in other donors, and single-donor analyses could be used to
+generate candidate markers for additional experimental exploration. However,
+the focus of the present analysis is the space of reproducible phenomena.
+
+Briefly note that selection of maximum values for either `k` or `d` should
+raise doubts about the robustness of the results, as they could depend on our
+choice of parameter ranges. One way to test this effect is to consider larger
+values for `maxk` or `maxd`.
 
 ## Visualizing Results with tSNE
 
-One advantage of the simultaneous `k` and `d` selection above is that we are
-left with a small number of Principal Components (PCs) that are well-suited for
-non-linear dimension reduction techniques such a tSNE.
+One advantage of the simultaneous `k` and `d` selection above is that we are 
+left with a small number of PCs that are well-suited for non-linear dimension 
+reduction techniques that are designed for visual representation (e.g. tSNE).
 
 ```{r tsne}
 
@@ -175,9 +206,12 @@ tsne_obj = Rtsne(pamkd_obj$Y,
 
 ```
 
-Because these PCs were sufficient in resolving the five clusters, we expect 
-that faithful dimension reduction should preserve the clustering. In the plot
-below we have reordered cluster names to match the main manuscript.
+Because 7 PCs optimally resolved the five clusters reported by `pamkd`, we
+expect further dimension reduction techniques to preserve that clustering.
+Therefore tSNE may provides us with a 2-dimensional representation of
+clustering in 7-dimensions. Below we can see that tSNE faithfully represents 
+our clusters. In the plot below we have reordered cluster names to match the 
+main manuscript.
 
 ```{r plottsne}
 
