@@ -5,5 +5,7 @@ Changes in version 0.99.0
 * IDR code borrows most of idr::est.IDR with a few modifications, including error messages and increased max.iter.
 * Most example code for IDR adapted from idr package.
 * Added reproducible module analysis utilities, including IDR-based method.
+* Added meta-analysis utilities.
+* Added secondary IDR functions, including sub-sampled est.IDRm and IDR-based correlation.
 * Draft of Vignette
 * Added marker wrapper function.

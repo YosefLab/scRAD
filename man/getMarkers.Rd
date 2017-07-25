@@ -60,8 +60,8 @@ a two-sided p-value below this threshold.}
 \item{...}{additional arguments passed to \code{\link[scider]{est.IDRm}}.}
 }
 \value{
-character. Genes in the intersection of de, modules, and (optional)
-  external marker list.
+list. Genes in de, modules, and (optional) external marker sets, as
+  well as intersection.
 }
 \description{
 Wrapper function for differential expression (de) analysis and reproducible

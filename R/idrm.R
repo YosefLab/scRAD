@@ -445,3 +445,201 @@ kruskalIDRm = function(x,
        kruskal_pvals = p_val_matrix,
        is_replicated = is_replicated)
 }
+
+#' Irreproducible Discovery Rate analysis with Sub-Sampling
+#'
+#' Fit a multivariate Gaussian copula mixture model to multiple sub-samples of
+#' observations.
+#'
+#' @param x an n by m numeric matrix, where m = num of replicates, n = num of
+#'   observations. Numerical values representing the significance of the
+#'   observations. Note that significant signals are expected to have large
+#'   values of x. In case that smaller values represent higher significance
+#'   (e.g. p-value), a monotonic transformation needs to be applied to reverse
+#'   the order before using this function, for example, -log(p-value).
+#' @param mu a starting value for the scalar mean for the reproducible
+#'   component.
+#' @param sigma	a starting value for the scalar standard deviation (diagonal
+#'   covariance) of the reproducible component.
+#' @param rho	a starting value for the scalar correlation coefficient
+#'   (off-diagonal correlation) of the reproducible component.
+#' @param p	a starting value for the proportion of the reproducible component.
+#' @param frac fraction of observations chosen in each sample. Default 0.7.
+#' @param nsamp number of samples. Default 100.
+#' @param verbose If TRUE, print helpful messages. Default FALSE.
+#' @param plot If TRUE, plot summary figures. Default FAlSE.
+#' @param ...	additional arguments passed to \code{\link[scider]{est.IDRm}}.
+#' 
+#' @importFrom graphics hist
+#' @importFrom stats na.omit sd
+#' @export
+#'
+#' @return a list with the following elements: \itemize{ \item{mean_para}{ mean
+#'   estimated parameters: p, rho, mu, sigma.}\item{para_bp}{ 
+#'   \code{\link[graphics]{boxplot}} summary for estimated parameters over 
+#'   samples.} \item{mean_idr}{ a numeric vector of mean local idr for each 
+#'   observation (i.e. estimated conditional probablility for each observation 
+#'   to belong to the irreproducible component.} \item{sd_idr}{ a numeric 
+#'   vector of s.d. of local idr for each observation.} \item{IDR}{ a numerical
+#'   vector of the expected irreproducible discovery rate for observations that
+#'   are as irreproducible or more irreproducible than the given observations.}
+#'   \item{times_sampled}{ a numerical vector of counts for each time an
+#'   observation was included in a sample.} \item{num_failed}{ number of times
+#'   a sampled fit failed for any reason.} }
+#'
+#' @examples
+#' data("simu.idr",package = "idr")
+#' # simu.idr$x and simu.idr$y are p-values
+#' # Transfer them such that large values represent significant ones
+#' x <- cbind(-simu.idr$x, -simu.idr$y)
+#'
+#' mu <- 2.6
+#' sigma <- 1.3
+#' rho <- 0.8
+#' p <- 0.7
+#'
+#' idr.out <- est.IDRm.sample(x, mu, sigma, rho, p, nsamp = 5)
+#'
+#' plot(-log10(idr.out$IDR),idr.out$sd_idr)
+#' abline(v = 2, col = "red", lty = 2)
+#'
+
+est.IDRm.sample = function(x,
+                           mu,
+                           sigma,
+                           rho,
+                           p,
+                           frac = 0.7,
+                           nsamp = 100,
+                           verbose = FALSE,
+                           plot = FALSE,
+                           ...
+){
+  if(verbose){print(paste0("sampling ",
+                           signif(100*frac,2),"% of observations ..."))}
+  idr_mat = matrix(NA,nrow = nrow(x),ncol = nsamp,
+                   dimnames = list(rownames(x),NULL))
+  par_mat = matrix(NA,nrow = 4,ncol = nsamp, 
+                   dimnames = list(c("p","rho","mu","sigma"),NULL))
+  for(n in 1:nsamp){
+    idx_samp = sample(x = seq_len(nrow(x)),size = round(frac*nrow(x)))
+    tryCatch({
+      temp_idr_obj = est.IDRm(x[idx_samp,],
+                              mu = mu,sigma = sigma,
+                              rho = rho,p = p, ...)
+      idr_mat[idx_samp,n] = temp_idr_obj$idr
+      par_mat[,n] = unlist(temp_idr_obj$para)
+    },error = function(e){warning(e)} )
+  }
+  if(verbose){print(paste0("... sampling complete."))}
+  
+  num_failed = sum(apply(is.na(par_mat),2,any))
+  if(verbose){print(paste0(num_failed," sample(s) failed."))}
+  if(num_failed > nsamp/2){
+    stop("more than 50% of random samples failed. try new initial params")
+  }
+  
+  mean_para = as.list(rowMeans(par_mat,na.rm = TRUE))
+  para_bp = graphics::boxplot(stats::na.omit(t(par_mat)),plot = plot)
+  
+  times_sampled = rowSums(!is.na(idr_mat))
+  
+  mean_idr = apply(idr_mat,1,mean,na.rm = TRUE)
+  o <- order(mean_idr)
+  idr.o <- mean_idr[o]
+  idr.rank <- rank(idr.o, ties.method = "max")
+  top.mean <- function(index, x) {
+    mean(x[1:index])
+  }
+  IDR.o <- sapply(idr.rank, top.mean, idr.o)
+  IDR <- mean_idr
+  IDR[o] <- IDR.o
+  
+  sd_idr = apply(idr_mat,1,stats::sd,na.rm = TRUE)
+  
+  if(plot){
+    hist(times_sampled, main = paste0(nsamp," samples"),
+         xlab = "Number of Times Sampled (per observation)")
+    mean_idr_bin = factor(round(10*mean_idr)/10)
+    plot(sd_idr ~  mean_idr_bin,
+         main = paste0(nsamp," samples"),
+         xlab = "Mean idr Value",
+         ylab = "idr Value S.D.",
+         pch = 16)
+  }
+  
+  return(list(mean_para = mean_para,
+              para_bp = para_bp,
+              mean_idr = mean_idr,
+              sd_idr = sd_idr,
+              IDR = IDR,
+              times_sampled = times_sampled,
+              num_failed = num_failed))
+}
+
+#' Irreproducible Discovery Rate analysis: Replicate Correlation Metric
+#'
+#' Compute reproducible correlation coefficient over replicates.
+#'
+#' @param x an n by m numeric matrix, where m = num of replicates, n = num of
+#'   observations. Numerical values representing the significance of the
+#'   observations. Note that significant signals are expected to have large
+#'   values of x. In case that smaller values represent higher significance
+#'   (e.g. p-value), a monotonic transformation needs to be applied to reverse
+#'   the order before using this function, for example, -log(p-value).
+#' @param mu a starting value for the scalar mean for the reproducible
+#'   component.
+#' @param sigma	a starting value for the scalar standard deviation (diagonal
+#'   covariance) of the reproducible component.
+#' @param rho	a starting value for the scalar correlation coefficient
+#'   (off-diagonal correlation) of the reproducible component.
+#' @param p	a starting value for the proportion of the reproducible component.
+#' @param ...	additional arguments passed to \code{\link[scider]{est.IDRm}}.
+#'
+#' @export
+#'
+#' @return a matrix of estimated correlation coefficients (NA if fit fails).
+#'
+#' @examples
+#' data("simu.idr",package = "idr")
+#' # simu.idr$x and simu.idr$y are p-values
+#' # Transfer them such that large values represent significant ones
+#' x <- cbind(-simu.idr$x, -simu.idr$y)
+#'
+#' mu <- 2.6
+#' sigma <- 1.3
+#' rho <- 0.8
+#' p <- 0.7
+#'
+#' print(corIDR(x))
+#'
+
+corIDR = function(x,
+                  mu = 1,
+                  sigma = 0.5,
+                  rho = 0.5,
+                  p = 0.5,
+                  ...) {
+  pair_cors = matrix(
+    NA,
+    nrow = ncol(x),
+    ncol = ncol(x),
+    dimnames = list(colnames(x), colnames(x))
+  )
+  diag(pair_cors) = 1
+  for (i in 1:(ncol(x) - 1)) {
+    for (j in (i + 1):(ncol(x))) {
+      tryCatch({
+        temp_idr_obj = est.IDRm(
+          x[, c(i, j)],
+          mu = mu,
+          sigma = sigma,
+          rho = rho,
+          p = p,
+          ...)
+        pair_cors[i, j] <- pair_cors[j, i] <- temp_idr_obj$para$rho
+      },error = function(e){warning(e)} )
+    }
+  }
+  return(pair_cors)
+}

@@ -37,6 +37,7 @@ library(RCurl)
 library(gdata)
 library(biomaRt)
 library(Biobase)
+library(GEOquery)
 
 ```
 
@@ -256,15 +257,6 @@ Visualizing the largest component of the graph, we can see that these hub genes
 (red points) cluster into multiple "reproducible modules".
 
 ```{r hub_show}
-
-g_list = decompose(g)
-g_big = g_list[order(sapply(g_list,vcount),decreasing = TRUE)][[1]]
-is_hub_big = V(g_big)$name %in% names(which(is_hub)) 
-plot(g_big,vertex.size = 1, vertex.color = "red",
-     layout = layout_nicely(g_big),
-     vertex.label = "",
-     vertex.shape = c("none","circle")[1 + is_hub_big],
-     vertex.frame.color = "red")
 
 g_hub = graph.adjacency(A[is_hub,is_hub],mode = "undirected")
 
@@ -668,7 +660,7 @@ upstream_scores = -cor(shrna_expr - rowMeans(shrna_expr),
     sc_expr - rowMeans(sc_expr))
 
 aheatmap(
-  log1p(upstream_scores),
+  upstream_scores,
   annCol = list(clustering),annColors = list(cluster_cols[order(o)]),
   breaks = 0,
   main = paste("(Unweighted) Upstream Regulatory Scores for",
@@ -715,6 +707,185 @@ tbk1_y = -log10(idrm_kruskal_pool_shrna$idr$IDR)[is_tbk1]
 lines(c(tbk1_x,tbk1_x + 0.15),c(tbk1_y,tbk1_y))
 points(tbk1_x,tbk1_y,pch = 21,bg = 2)
 text(pos = 4,tbk1_x+ 0.15,tbk1_y,labels = "Tbk1")
+
+```
+
+# Other Meta-Analysis Utilities
+
+```{r get_tlr}
+
+# Download GEO Data
+options('download.file.method' = 'curl')
+geo_set = getGEO("GSE17721")[[1]]
+
+# Aggregate by sample biotype and gene symbol
+meta_data = t(simplify2array(strsplit(as.character(geo_set$title),
+                                      split = ", ")))
+bio_type = factor(gsub("ontrol", "",
+                      paste0(meta_data[, 1], gsub(
+                      "_.*", "", meta_data[, 2]
+                      ))))
+gene_symbol = factor(featureData(geo_set)$"Gene Symbol")
+
+tlr_array = t(aggregate(t(aggregate(
+  exprs(geo_set), by = list(gene_symbol), mean
+  )[, -1]), by = list(bio_type), mean)[, -1])
+dimnames(tlr_array) = list(levels(gene_symbol), levels(bio_type))
+  
+# Identify unambiguous gene symbol designations
+ambiguous_symbols = unique(unlist(strsplit(levels(gene_symbol)[grepl(" /// ",
+                                                      levels(gene_symbol))],
+                                                  split = " /// ")))
+tlr_array = tlr_array[!rownames(tlr_array) %in% ambiguous_symbols,]
+
+# Select 0-hour control and 24-hour perturbations
+tlr_array  = tlr_array [, grepl("[^C]24|C0", colnames(tlr_array))]
+
+aheatmap(
+  log1p(tlr_array),
+  main = paste("Normalized mRNA log-abundance across",
+               ncol(tlr_array),
+               "bulk samples")
+  )
+```
+
+```{r map_tlr}
+gene_map = getLDS(
+  mart = useMart("ENSEMBL_MART_ENSEMBL",
+                 dataset = "mmusculus_gene_ensembl",
+                 host = "jul2015.archive.ensembl.org"),
+  attributes = "mgi_symbol",
+  filters = "mgi_symbol",
+  values = rownames(tlr_array),
+  martL = useMart("ENSEMBL_MART_ENSEMBL",
+                  dataset = "hsapiens_gene_ensembl",
+                  host = "jul2015.archive.ensembl.org"),
+  attributesL = "hgnc_symbol",
+  filtersL = "hgnc_symbol",
+  valuesL = rownames(lexpr)
+)
+
+# Select expression sub-matrices for uniquely mapped genes
+uniq_gene_map = gene_map[apply(apply(gene_map, 2, isUnique), 1, all),]
+is_withinrange = uniq_gene_map$MGI.symbol %in% rownames(tlr_array) &
+  uniq_gene_map$HGNC.symbol %in% rownames(lexpr)
+uniq_gene_map = uniq_gene_map[is_withinrange, ]
+
+sc_expr = lexpr[uniq_gene_map$HGNC.symbol,]
+tlr_expr = log(tlr_array)[uniq_gene_map$MGI.symbol,]
+
+```
+
+```{r prep_tlr}
+
+stim_scores = cor(tlr_expr - rowMeans(tlr_expr),
+                 sc_expr - rowMeans(sc_expr))
+
+aheatmap(
+  stim_scores,
+  annCol = list(clustering),annColors = list(cluster_cols[order(o)]),
+  breaks = 0,
+  main = paste("(Unweighted) TLR Stimulation Scores for",
+               nrow(stim_scores),
+               "Bulk Samples")
+  )
+```
+
+```{r meta_tlr}
+
+is_included = !clustering %in% "c2"
+x = stim_scores[, is_included]
+g = factor(c("c1", NA, rep("c3-5", 3))[factor(clustering)])[is_included]
+r = factor(c(rep("P12", 2), "P3")[donor[is_included]])
+meta_kruskal_pool_tlr = kruskalMeta(x, r, g)
+
+mean_sigs = aggregate(t(x), by = list(cluster = g, pool = r), FUN = mean)
+lfc = colMeans(mean_sigs[, -c(1:2)][mean_sigs$cluster == "c1", ] -
+                 mean_sigs[, -c(1:2)][mean_sigs$cluster != "c1", ])
+
+is_sig = meta_kruskal_pool_tlr$FDR < 0.001
+
+plot(
+  lfc[rownames(meta_kruskal_pool_tlr$kruskal_pvals)],
+  -log10(meta_kruskal_pool_tlr$FDR),
+  pch = 21,
+  bg = 1 + is_sig,
+  main = paste("TLR Analysis: c1 vs c3-5"),
+  ylab = "-log10(FDR)",
+  xlim = c(-0.1, 0.1),
+  ylim = c(0, 20),
+  xlab = "Mean Difference in TLR Stimulation Score"
+)
+
+abline(h = -log10(0.001),
+       lty = 2,
+       col = 2)
+
+# Labels
+text(lfc[rownames(meta_kruskal_pool_tlr$kruskal_pvals)][is_sig],
+  -log10(meta_kruskal_pool_tlr$FDR)[is_sig],
+  pos = 3,
+  labels = names(which(is_sig)))
+
+```
+
+```{r meta_tlr2}
+
+is_included = clustering %in% "c1"
+x0 = stim_scores[, is_included]["C0",]
+x = stim_scores[, is_included][-which(rownames(stim_scores) == "C0"),]
+r = factor(c(rep("P12",2),"P3")[donor[is_included]])
+
+# CDFs
+for (p in levels(r)) {
+  is_p = r == p
+  plot(ecdf(x0[is_p]), main = paste0("c1 in ",p),
+       xlab = "x = TLR Stimulation Score",
+       do.points=FALSE, verticals = TRUE, lwd = 3,xlim = range(rbind(x0,x)))
+  for(i in 1:nrow(x)){
+    plot(ecdf(x[i,][is_p]), do.points=FALSE,
+         verticals = TRUE,
+         add=TRUE, col=brewer.pal(nrow(x),"Set1")[i], lwd = 3)
+  }
+  legend("bottomright",legend = rownames(x),lty = 1,
+         lwd = 3,col = brewer.pal(nrow(x),"Set1"))
+  legend("topleft",legend = "Control",col = 1, lty = 1, lwd = 3)
+}
+
+```
+
+```{r meta_tlr2_test}
+
+meta_ks_pool_tlr = ksMeta(x,x0,r)
+stopifnot(all(meta_ks_pool_tlr$is_replicated))
+
+mean_sigs = aggregate(t(x), by = list(pool = r), FUN = mean)
+mean_sigs0 = aggregate(x0, by = list(pool = r), FUN = mean)
+lfc = colMeans(mean_sigs[,-1] - mean_sigs0[,-1])
+
+is_sig = meta_ks_pool_tlr$FDR < 0.001
+  
+plot(
+  lfc,
+  -log10(meta_ks_pool_tlr$FDR),
+  pch = 21,
+  bg = 1 + is_sig,
+  main = paste("TLR Analysis: c1 Similarity"),
+  ylab = "-log10(FDR)",
+  xlim = c(-0.1, 0.1),
+  ylim = c(0, 20),
+  xlab = "Mean Difference TLR Stimulation Score vs Control Score"
+)
+
+abline(h = -log10(0.001),
+       lty = 2,
+       col = 2)
+
+# Label Tbk1
+text(lfc[is_sig],
+  -log10(meta_ks_pool_tlr$FDR)[is_sig],
+  pos = 3,
+  labels = names(which(is_sig)))
 
 ```
 

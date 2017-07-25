@@ -20,7 +20,9 @@ Imports:
   igraph,
   pscl,
   VennDiagram,
-  idr
+  idr,
+  metap,
+  graphics
 Suggests:
   SummarizedExperiment,
   NMF,
@@ -35,7 +37,8 @@ Suggests:
   RCurl,
   biomaRt,
   gdata,
-  openxlsx
+  openxlsx,
+  GEOquery
 VignetteBuilder: knitr
 LazyLoad: yes
 biocViews:

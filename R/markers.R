@@ -38,8 +38,8 @@
 #'   
 #' @export
 #' 
-#' @return character. Genes in the intersection of de, modules, and (optional)
-#'   external marker list.
+#' @return list. Genes in de, modules, and (optional) external marker sets, as
+#'   well as intersection.
 #'   
 #' @importFrom igraph graph.adjacency
 #' @importFrom stats p.adjust aggregate
@@ -149,6 +149,11 @@ getMarkers = function(x,
   if (!is.null(external_markers)) {
     marker_names = intersect(external_markers, marker_names)
   }
+  suppressWarnings({
+  return(list(de_names = sort(de_names),
+       module_names = sort(module_names),
+       external_markers= sort(external_markers),
+       marker_names = sort(marker_names)))
+  })
   
-  return(sort(marker_names))
 }
