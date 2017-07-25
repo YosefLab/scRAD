@@ -45,30 +45,40 @@ library(GEOquery)
 
 As single-cell technologies mature and push the boundaries of study resolution 
 and scale, they promise to enrich our understanding of many complex biological 
-systems. In the human disease context, studies of single donors can prove very 
-fruitful in the characterization and cataloging of diverse cell states. Of 
-course, while single-subject studies can be used to generate bold hypotheses, 
-this approach does not guarantee that results are relevant to people with 
-related phenotypes. If the goal of an analysis is to predict phenomena across a
-specific phenotype, it is important to prioritize reproducibility across 
-multiple donors.
+systems. In the human disease context, studies of single donors may prove very 
+fruitful in the characterization and cataloging of diverse cell states. While 
+single-subject studies can be used to generate bold hypotheses, these 
+approaches do not guarantee results applicable to other people with related 
+phenotype. If the goal of an analysis is to predict phenomena across a 
+specific phenotype - in humans, mice, or other models - it is important
+to prioritize reproducibility across multiple sources.
 
 In this vignette we will step through an analysis of single-cell RNA-Seq data 
-collected from 3 human donors, demonstrating how the principle of 
-reproducibility can guide the computational analysis and how we can treat it
-quantitatively within the frameworks of Reproducible Module Analysis or the 
-Irreproducible Discovery Rate (IDR; NOTE:CITE).
+collected from 3 human donors. In Section 2, we model coarse-grained structures
+in the expression data, discussing the problem of clustering cells across 
+multiple donors. In Section 3, we begin to leverage donor information in order 
+to identify "reproducible gene modules": axes of expression variation that are 
+common to all patients. Section 4 introduces quantitative tools - based on the 
+Irreproducible Discovery Rate [@li2011] - for assessing signal 
+reproducibility across donors. Examples from differential expression analysis, 
+differential signature analysis, and correlation analysis demonstrate the 
+general applicability of the framework and utilities. Section 5 summarizes 
+additional tools for meta-analysis applicable to multi-donor studies. Section 6
+presents a simple tool for relating modules for the purpose of marker 
+discovery.
 
-## Dendritic Cells in Elite Controllers
+## The Data Set: Dendritic Cells in Elite Controllers
 
-As non-model organisms, humans are extremely difficult to study. Human systems
-can exhibit extremely diverse biological phenomena, each a complex product of
-genetics, behavior, exposure and environment.
+Human systems typically exhibit a diversity of biological phenomena beyond the 
+uncontrolled axes of variation seen in model organisms. Each donor is a complex
+product of genetics, behavior, exposure and environment.
 
-In this vignette we consider a data set of cells collected from 3 Elite
-Controllers (ECs). Some of the cells have been exposed to pseudotyped HIV-1 for
-48 hours, while the rest have been exposed to a media control for the same
-period of time.
+In this vignette, we consider a single-cell RNA-Seq data set of cells collected
+from 3 Elite Controllers (ECs): HIV-infected individuals with vanishingly small
+levels of circulating virus. In order to probe the nature of innate immune
+responses in these subjects, donor dendritic cells were isolated and exposed to
+pseudotyped HIV-1 for 48 hours. Other cells were exposed to a media control for
+the same period of time.
 
 ```{r datain}
 

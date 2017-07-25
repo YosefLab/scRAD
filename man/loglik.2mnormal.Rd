@@ -27,6 +27,7 @@ Log-likelihood of the multivariate 2-component Gaussian mixture
 \description{
 Compute the log-likelihood for parameterized multivariate 2-component
 Gaussian mixture models with (1-p)N(0, 1, 0) + pN(mu, sigma, rho).
+Code adapted from \code{\link[idr]{loglik.2binormal}}.
 }
 \examples{
 z.1 <- c(rnorm(500, 0, 1), rnorm(500, 3, 1))

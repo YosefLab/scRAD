@@ -25,6 +25,7 @@ a list with the following elements: \itemize{ \item{p}{the estimated
 Maximization step in the EM algorithm for parameterized multivariate
 2-component Gaussian mixture models with (1-p)N(0, 1, 0) + pN(mu, sigma,
 rho).
+Code adapted from \code{\link[idr]{m.step.2normal}}.
 }
 \examples{
 z.1 <- c(rnorm(500, 0, 1), rnorm(500, 3, 1))

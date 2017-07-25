@@ -43,6 +43,7 @@ a list with the following elements: \itemize{ \item{para}{ estimated
 }
 \description{
 Fit a multivariate Gaussian copula mixture model.
+Code adapted from \code{\link[idr]{est.IDR}}.
 }
 \examples{
 data("simu.idr",package = "idr")

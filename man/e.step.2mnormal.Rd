@@ -29,6 +29,7 @@ e.z a numeric vector, where each entry represents the estimated
 Expectation step in the EM algorithm for parameterized multivariate
 2-component Gaussian mixture models with (1-p)N(0, 1, 0) + pN(mu, sigma,
 rho).
+Code adapted from \code{\link[idr]{e.step.2normal}}.
 }
 \examples{
 z.1 <- c(rnorm(500, 0, 1), rnorm(500, 3, 1))

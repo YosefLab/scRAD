@@ -2,6 +2,7 @@
 #' marginals
 #'
 #' Compute the log-density for 3-parameter multivariate Gaussian distribution.
+#' Code adapted from \code{\link[idr]{d.binormal}}.
 #'
 #' @param z data matrix
 #' @param mu scalar mean
@@ -46,6 +47,7 @@ d.mnormal = function(z, mu, sigma, rho)
 #'
 #' Compute the log-likelihood for parameterized multivariate 2-component
 #' Gaussian mixture models with (1-p)N(0, 1, 0) + pN(mu, sigma, rho).
+#' Code adapted from \code{\link[idr]{loglik.2binormal}}.
 #'
 #' @param z data matrix
 #' @param mu scalar mean for the reproducible component.
@@ -95,6 +97,7 @@ loglik.2mnormal = function(z, mu, sigma, rho, p)
 #' Expectation step in the EM algorithm for parameterized multivariate
 #' 2-component Gaussian mixture models with (1-p)N(0, 1, 0) + pN(mu, sigma,
 #' rho).
+#' Code adapted from \code{\link[idr]{e.step.2normal}}.
 #'
 #' @param z data matrix
 #' @param mu scalar mean for the reproducible component.
@@ -140,6 +143,7 @@ e.step.2mnormal = function (z, mu, sigma, rho, p)
 #' Maximization step in the EM algorithm for parameterized multivariate
 #' 2-component Gaussian mixture models with (1-p)N(0, 1, 0) + pN(mu, sigma,
 #' rho).
+#' Code adapted from \code{\link[idr]{m.step.2normal}}.
 #'
 #' @param z data matrix
 #' @param e.z a vector of expected conditional probability that the
@@ -188,6 +192,7 @@ m.step.2mnormal = function(z, e.z)
 #' model
 #'
 #' Fit a multivariate Gaussian copula mixture model.
+#' Code adapted from \code{\link[idr]{est.IDR}}.
 #'
 #' @param x an n by m numeric matrix, where m = num of replicates, n = num of
 #'   observations. Numerical values representing the significance of the

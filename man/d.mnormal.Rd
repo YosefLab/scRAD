@@ -21,6 +21,7 @@ Log density of multivariate Gaussian distribution.
 }
 \description{
 Compute the log-density for 3-parameter multivariate Gaussian distribution.
+Code adapted from \code{\link[idr]{d.binormal}}.
 }
 \examples{
 z.1 <- rnorm(500, 3, 1)
