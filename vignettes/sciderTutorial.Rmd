@@ -164,11 +164,11 @@ pamkd_obj = pamkd(
 
 In the call above, we have set the following argument values:
 
-* maxk = 10. Consider a maximum of 10 PAM clusters.
-* maxd = 50. Consider a maximum of 50 Principal Components (PCs).
-* to_log = FALSE. Data is already log-transformed.
-* pca_center = TRUE. Expression data rows (genes) are centered for PCA.
-* pca_scale = TRUE. Genes are scaled to unit variance for PCA.
+* `maxk` = 10. Consider a maximum of 10 PAM clusters.
+* `maxd` = 50. Consider a maximum of 50 Principal Components (PCs).
+* `to_log` = FALSE. Data is already log-transformed.
+* `pca_center` = TRUE. Expression data rows (genes) are centered for PCA.
+* `pca_scale` = TRUE. Genes are scaled to unit variance for PCA.
 
 Inspecting the output, under the `pamobject` return value, we see 
 that `pamkd` identified 5 clusters across the 3 donors.
@@ -251,23 +251,31 @@ legend(
 # Reproducible Gene Modules
 
 Given access to multiple samples of homologous single-cell populations, it may 
-be important to identify sets of genes that vary across all of them. This kind 
-of analysis may naturally follow a clustering step, uncovering reproducible 
-modes of intra-cluster variation. Alternatively, this analysis may be done 
-separately from clustering analysis; reproducible modules varying across all 
-cells in the population serve as a basis for a reproducible inter-cluster 
-manifold. We take this latter approach in this vignette.
+be important to identify common sets of covarying genes or "reproducible gene 
+modules." Reproducibly correlated gene modules may inform us of novel 
+biological mechanisms in these systems.
 
-Our reproducible gene module analysis is broken into three steps:
+If cell populations are heterogeneous, this kind of analysis may naturally 
+follow a clustering step, uncovering reproducible modes of intra-cluster 
+variation. Alternatively, reproducible correlation analysis may be done 
+separately from clustering analysis altogether; reproducible modules can serve
+as a basis for a reproducible inter-cluster manifold. We will consider this
+latter approach in this section.
 
-1) Identify gene-gene pairs that are reproducibly correlated above a threshold.
-2) Identify "hubs" in the reproducible gene-gene graph.
-3) Cluster hub genes into reproducible modules.
+The `scider` package facilitates a three-step reproducible gene module
+analysis. The first step involves identifying gene-gene pairs that are
+"reproducibly correlated," generating a gene-gene adjacency matrix. We will
+first consider a simple threshold-based reproducibility criterion and turn to
+other options later in the vignette. The second step is hub-identification in
+the reproducible gene-gene graph. The goal of this step is to identify genes
+that play critical roles in the reproducible covariance structure. The third
+step is the least critical, clustering hub genes into "reproducible modules."
 
 ## Defining a Reproducible Gene-Gene Adjacency Matrix
 
-The `get.repro.thresh.adjacency` can generate a gene-gene adjacency matrix
-based on a simple correlation threshold criterion.
+In the first step or our analysis, we use `get.repro.thresh.adjacency` to
+generate a gene-gene adjacency matrix based on a simple correlation threshold
+criterion.
 
 ```{r adj}
 
@@ -277,28 +285,39 @@ A = get.repro.thresh.adjacency(x = lexpr,
 
 ```
 
-For each donor, Pearson correlations are computed across all gene pairs.
-Resulting pairs are Fisher-transformed, centered and scaled to unit variance
-over the upper-triangular. The choice of `pair_pthresh` corresponds to the
-maximum 2-tailed p-value under a normal null. If a gene-pair falls below this
-threshold in all donors, an undirected edge is drawn between the two genes.
+In the call above, we have set the following argument values:
+
+* `r` = donor. Correlation matrices will be separately computed across all
+three donors.
+* `pair_pthresh` = 0.01474. Following z-scaling of donor upper-triangular
+correlation matrices, a pair will be called "reproducible" if its z-value 
+corresponds to a 2-tailed p-value below this threshold. The unusual threshold
+value - an artifact of an alternative transformation scheme - was selected to
+perfectly reproduce the results in Gayo et al. 2017.
+
+If a gene-pair's p-value falls below `pair_pthresh` in all donors, an
+undirected edge is drawn between the two genes. Due to the small number edges
+expected in this matrix, the result is returned in a sparse matrix format.
 
 ## Hub Identification
 
-The `pzipdegree` is a simple tool for hub identification based on a Poisson 
-model of vertex degree. The model includes a zero-inflated component to 
-represent noisy genes with correlations consistently below threshold. The
-method returns upper-tail p-values for ranking hub genes under the null model.
+The `pzipdegree` function is a simple tool for hub identification based on a 
+Poisson model of vertex degree: this degree distribution would result from 
+independent and uniform edge probabilities in the case of many genes. Our model
+includes a zero-inflated component to represent noisy genes with correlations 
+consistently below threshold. `pzipdegree` takes an `igraph` object as its
+argument, returning upper-tail p-values under the null model.
 
 ```{r hub}
 
 g = graph.adjacency(A,mode = "undirected")
 is_hub = p.adjust(pzipdegree(g), method = "bonferroni") < 0.01
+table(is_hub)
 
 ```
 
-Visualizing the largest component of the graph, we can see that these hub genes
-(red points) cluster into multiple "reproducible modules".
+Visualizing the subgraph of hubs below we can see that there is some
+interesting structure.
 
 ```{r hub_show}
 
@@ -312,12 +331,14 @@ plot(g_hub, vertex.size = 5, vertex.color = "white",
 
 ```
 
-## Module Clustering
+## Hub Clustering and Reproducible Module Annotation
 
-In the final step of our reproducible module analysis, we aim to cluster hub
-genes into reproducible modules. There are many ways to cluster genes, but
-below we have clustered according to a median hub correlation matrix: the
-element-wise median of all donor-specific hub-hub correlation matrices.
+In the last step of our reproducible module analysis, we aim to cluster hub 
+genes into reproducible modules. `scider` provides no new tools for this step, 
+but we may rely on other common libraries: there are many ways to cluster genes
+based on their correlation sub-matrix. Below we have clustered according to a 
+median hub-hub correlation matrix: the element-wise median of all
+donor-specific hub-hub correlation matrices.
 
 ```{r hubclust}
 
@@ -342,8 +363,9 @@ table(hub_clustering)
 
 ```
 
-Setting the number of module to three we find one large module and two smaller
-modules. We can visualize the median correlation below:
+Setting the number of modules to three we find one large module and two smaller
+modules. Visualizing the median correlation below, three appears to be a
+reasonable selection of module number:
 
 ```{r mediancor}
 
@@ -362,10 +384,10 @@ aheatmap(
 
 ```
 
-From the hierarchical clustering, module `m1` is anti-correlated with both `m2`
-and `m3`, but `m3` forms a uniform sub-module. When we visualize the three
-donor-specific correlation matrices separately we can see that `m1` is very
-robust, while the contrast between `m2` and `m3` softens between donors.
+Module `m1` is anti-correlated with both `m2` and `m3`, but `m3` forms a
+uniform sub-module. When we visualize the three donor-specific correlation
+matrices separately we can see that `m1` is very robust, while the contrast
+between `m2` and `m3` softens between donors.
 
 ```{r donorcors}
 
@@ -388,8 +410,8 @@ hm_list = sapply(levels(donor),
 ## Reproducible Inter-Cluster Manifold
 
 As mentioned above, reproducible modules may be used to compare clusters within
-a reproducible subspace. In this section we will define simple module scores
-and use these as the basis of a tSNE representation:
+a reproducible subspace. Below we define a simple module score to illustrate
+this concept.
 
 ```{r module_scores}
 
@@ -400,6 +422,23 @@ module_scores = t(aggregate(t(apply(
 by = list(hub_clustering),
 FUN = mean)[, -1])
 
+aheatmap(t(module_scores),
+         main = "Reproducible Module Scores", labRow = levels(hub_clustering),
+         breaks = 0, annCol = list(Clusters = clustering, Donors = donor),
+         annRow = list(Modules = factor(levels(hub_clustering))),
+         annColors = list(Clusters = cluster_cols[order(o)],
+                          Donors = c("lightblue","violet","gold"),
+                          Modules = module_cols)
+  )
+
+
+```
+
+We can also visualize this three-dimensional data in a 2-dimensional
+representation below.
+
+```{r module_scores_tsne}
+  
 # 2D tSNE on module scores
 tsne_obj_hub = Rtsne(module_scores,
                      pca = FALSE,
@@ -410,10 +449,10 @@ tsne_obj_hub = Rtsne(module_scores,
 
 Below we can see that this "reproducible" tSNE manifold is different from the 
 original above. There is a smoother transition from `c1` to `c2`, `c3`, and on 
-to a merged `c4-5` cluster. This gradual progression motivates our focus on
-extremal clusters (not `c2`) for differential expression analysis.
+to a merged `c4-5` cluster. This gradual progression is one motivation for
+focusing on extremal clusters (not `c2`) for differential expression analysis.
 
-```{r module_scores_show}
+```{r module_scores_tsne_show}
 
 plot(
   tsne_obj_hub$Y,
@@ -436,76 +475,88 @@ legend("bottomright",
 
 ```
 
-# Irreproducible Discovery Rate and Differential Expression
+# Reproducibility-Based Differential Expression and Signature Analyses
 
-Below we will consider three methods for calling differential expression
-between `c1` cells and `c3-5` cells.
+At this point in our analysis, we are beginning to study gene-level phenomena. 
+For example, we may start to quantify the extent to which transcripts are 
+up-regulated or down-regulated in `c1` cells vs `c3-5` cells. How to we begin 
+to address patient variability? For example, how do we address expression 
+differences between `c1` cells across donors? In this section we will first 
+consider a traditional method for modeling donor biases in the context of
+differential expression. Then we will contrast modeling results to the results
+of Irreproducible Discovery Rate (IDR) analysis as outlined in [@li2011],
+taking the opportunity to discuss our contribution to pre-existing IDR tool
+set.
 
-NOTE: POWER ANALYSIS NOTE: Simulations for interaction NOTE: Like some feedback
-from other people in the lab
+Following our discussion of differential expression, we will demonstrate the 
+generalizability of `scider` IDR tools by applying them to two different
+signature analyses.
 
-## Ordinary Least-Squares Regression with donor Term
+## Linear Models of Differential Expression
 
-Our first method is based on a simple regression model. For each gene we
-estimate a separate offset, cluster effect (`c1` vs `c3-5`), and donor
-effects (`P1`/`P2` vs `P3`) to model the expression of that gene across all
-cells in th study.
+Our first method models the log-expression of each gene with gene-specific
+linear models. For each gene we estimate a separate offset, cluster effect
+(`c1` vs `c3-5`), and donor effects (`P1` or `P2` vs `P3`) to model the
+expression of that gene across all cells in th study, excluding cells in `c2`.
 
 ```{r lm}
 
+# Dependent and independent variables
 is_included = !clustering %in% "c2"
 x = lexpr[, is_included]
 g = factor(c("c1",NA,rep("c3-5",3))[factor(clustering)])[is_included]
+r = donor[is_included]
 
-# List: One lm fit per gene
-lm_list = apply(
-  lexpr[, is_included], 1,
-  function(y) {
-    lm(y ~ g + factor(donor[is_included],
-                      levels = c("P3", "P1", "P2")))
-    })
+# One fit per gene
+bio_effect_results = data.frame(t(apply(x, 1,function(y){
+  coefficients(summary(lm(y ~ g + r)))["gc3-5",c("Estimate","Pr(>|t|)")]
+  })),row.names = rownames(x))
+colnames(bio_effect_results) = c("Estimate","p")
 
-# Matrix of t-test p-values
-lm_pvals  = unlist(lapply(lm_list, function(x) {
-  coefficients(summary(x))[2, 4]
-}))
-
-# Top 
-plot(seq_along(lm_pvals)/(length(lm_pvals)+1),
-     sort(lm_pvals),
-     main = "DE: donor-Adjusted P-value",
-     xlab = "Theoretical Quantiles",
-     ylab = "Observed Quantiles",
-     log = "xy")
-abline(0,1, lty = 2)
-
+plot(-bio_effect_results$Estimate,
+     -log10(bio_effect_results$p),
+     main = "c1 vs c3-5: Donor-Adjusted Effect",
+     xlab = "Effect", ylab = "-log10(p-value)",
+     pch = 16, xlim = c(-8,8), ylim = c(0,150))
 ```
 
-Obviously the p-value distribution is skewed heavily to low values. This is not
-particularly suprising given that the clustering is based on the expression 
-data itself. One problem with this simple model is that it does not accomodate
-interactions: there is no attribution of donor-specific differential
-expression.
+Given there are less than 10,000 tests, it is obvious that the p-value 
+distribution is skewed heavily toward low values. This is not particularly 
+suprising given that cell clustering is based on the expression data itself.
+
+A notable limitation of this simple model is that it does not include 
+interactions between donor and cluster: not only can there be no attribution of
+donor-specific differential expression effect, but there is no notion of 
+"common" effect being modeled. Rather than consider more sophisticated 
+alternatives, we will explore how these results compare to those of IDR 
+meta-analysis.
 
 ## Irreproducible Discovery Rate
 
-Rather than simply identifying genes that show evidence of differential 
-expression, we may wish to emphasize differential expression that is 
-"reproducible" across donors. The Irreproducible Discovery Rate framework 
-(NOTE: CITE) offers methods for comparing results of replicate analyses: e.g. 
+Rather than simply identifying genes that show significant evidence of
+differential expression, we may wish to emphasize differential expression that
+is "reproducible" across donors. The Irreproducible Discovery Rate framework 
+[@li2011] outlines methods for comparing results of replicate analyses: e.g. 
 differential expression analyses performed separately for each donor. Given a 
 list of significance scores (e.g. -log(p-value)), for each donor, we can fit 
-tests to a 2-component mixture model: tests are either part of an
-irreproducible component, in which significance rank is uncorrelated across
-donors, or part of a reproducible component in which significance rank is
+tests to a 2-component mixture model: tests are either part of an 
+irreproducible component, in which significance rank is uncorrelated across 
+donors, or part of a reproducible component in which significance rank is 
 correlated and higher on average.
 
-`kruskalIDRm` is a wrapper function for gene-level tests of association
-(Kruskal-Wallis rank sum), followed by IDR analysis on the resulting
--log(p-value) matrix. In order to call this function, a user must specify
-replicate groups under which association tests are performed. The analysis
-presented in our manuscript pooled cells from donors `P1` and `P2` to form
-two replicate groups: `P12` and `P3`.
+`kruskalIDRm` is a function for stratified gene-level tests of association
+(Kruskal-Wallis H test), followed by IDR analysis on the resulting
+-log(p-value) matrix. Arguments to this function include:
+
+* `x`: the (log-) expression matrix to be tested.
+* `r`: replicate groups under which association tests are performed.
+* `g`: groups of cells to be compared with respect to every gene.
+
+Due to small numbers of cells in the first two donors, the analysis presented 
+in our manuscript pooled cells from donors `P1` and `P2` in order to form two 
+replicate groups: `P12` and `P3`. Note that IDR tools impemented in the CRAN 
+[idr](https://cran.r-project.org/web/packages/idr/index.html) package are
+designed to analyze only 2 replicates.
 
 ```{r idr2}
 
@@ -514,11 +565,12 @@ idrm_kruskal_pool = kruskalIDRm(x, r, g)
 
 ```
 
-The resulting list contains the p-value matrix from differential expression 
-tests, an object containing all IDR results, and a logical indicating which 
-genes were included in the DE analysis; low-gene variance genes are filtered at
-the earliest stage. We can access the gene-level IDR estimates for all genes
-that were tested:
+The resulting list contains the (named) p-value matrix from differential
+expression tests, an object containing all IDR results, and a logical
+indicating which genes were included in the DE analysis; low-gene variance
+genes are filtered at the earliest stage. We can access the gene-level IDR
+estimates for all genes that were tested, by accessing the IDR analysis
+element, `idr`:
 
 ```{r idr2_unpack}
 
@@ -528,16 +580,17 @@ names(IDR) = rownames(
 
 ```
 
-Similar to a false-discovery rate (FDR), these values correspond to the
+Similar to a false-discovery rate (FDR), IDR values correspond to the 
 cumulative fraction of irreproducible tests (genes) for genes of less or equal 
 irreproducible component membership probability.
 
-Below we plot the relationship between IDR values and adjusted t-test p-values
-from the section above.
+Below we plot the relationship between IDR values and Bonferroni-adjusted
+t-test p-values from the section above.
 
 ```{r idr2vpval}
 
-lm_pvals_adjust = p.adjust(lm_pvals[names(IDR)], method = "bonferroni")
+lm_pvals_adjust = p.adjust(bio_effect_results[names(IDR),]$p,
+                           method = "bonferroni")
 
 gtype = factor(paste((-log10(lm_pvals_adjust) > 2), (-log10(IDR)  > 2)))
 gcols = c("grey", "blue", "red", "purple")[gtype]
@@ -548,7 +601,7 @@ plot(
   pch = 21,
   bg = gcols,
   main = "Differential Expression: c1 vs c3-5, per gene",
-  xlab = "-log10(Bonferroni DE p-value); all samples w/batch term",
+  xlab = "-log10(Bonferroni lm p-value)",
   ylab = "-log10(IDR): 2 Replicates (w/ Pooling)"
 )
 abline(v = 2, col = "red", lty = 2)
@@ -556,7 +609,7 @@ abline(h = 2, col = "blue", lty = 2)
 legend(
   "bottomright",
   legend = paste(
-    c("no sig. no rep.", "no sig. rep.", "sig. no rep.", "sig. rep."),
+    c("insig. irrep.", "insig. rep.", "sig. irrep.", "sig. rep."),
     "n =",
     table(gtype)
   ),
@@ -567,17 +620,73 @@ legend(
 
 We can see that 29% of the genes that are called as significantly 
 differentially expressed (adjusted p-value < 0.01) are not reproducibly so (IDR
-< 0.01). On the other hand, only 8% of reproducible tests do not meet the 
-traditional significance threshold. Therefore, the reproducible criterion 
-appears to be be stricter in addition to being more easily interpretable.
+< 0.01). These genes are differentially expressed, but they do not vary 
+consistently across the 2 cell pools. For example, a gene may be differentially
+expressed in one but not the other. Alternatively, the gene could be
+differentially expressed in both pools, but the rank of the difference
+varies substantially between pools:
+
+```{r pvalvpval_sig}
+
+rank_matrix = apply(idrm_kruskal_pool$kruskal_pvals[names(IDR), ],
+                    2, rank)
+plot(
+  rank_matrix[as.numeric(gtype) %in% c(3, 4), ],
+  main = "Rank of p-value",
+  pch = 16,
+  cex = .5,
+  xlim = range(rank_matrix),
+  ylim =  range(rank_matrix),
+  col = gcols[as.numeric(gtype) %in% c(3, 4)]
+)
+legend(
+  "topright",
+  legend =
+    c("sig. irrep.", "sig. rep."),
+  fill = c("red", "purple")
+)
+
+```
+
+On the other hand, only 8% of genes that exhibit reproducible p-value rank fall
+below our significance threshold. The presence of many tests like this could
+suggest that the significance threshold is too stringent or that there is an
+issue with the underlying null model used for computing p-values.
+
+```{r pvalvpval_insig}
+
+plot(
+  rank_matrix[as.numeric(gtype) %in% c(1, 2), ],
+  main = "Rank of p-value",
+  pch = 16,
+  cex = .5,
+  xlim = range(rank_matrix),
+  ylim =  range(rank_matrix),
+  col = gcols[as.numeric(gtype) %in% c(1, 2)]
+)
+legend(
+  "topright",
+  legend =
+    c("insig. irrep.", "insig. rep."),
+  fill = c("grey", "blue")
+)
+
+```
+
+Beyond the small number of insignificant reproducible tests, the IDR criterion 
+appears to be be stricter than our significance criterion, selecting a smaller
+set of tests with uniform results across replicate pools.
 
 ## Irreproducible Discovery Rate with Many Replicates
 
-In this package we have modified the code from the CRAN 
+In the `scider` package we have modified code from the CRAN 
 [idr](https://cran.r-project.org/web/packages/idr/index.html) package to handle
-more than 2 replicates, as discussed in the authors' original manuscript (NOTE:
-CITE). Using this functionality, we may choose to perform a similar analysis as
-in the previous subsection, but treat each donor as a replicate pool.
+more than 2 replicates, as prescribed in the authors' original manuscript. The 
+many-replicate `est.IDRm` function implemented in `scider` is adapted from the 
+2-replicate `est.IDR` in `idr`, inlcuding some new error messages.
+
+Using this broader functionality, we may choose to perform a similar analysis
+as in the previous subsection, but treat each donor as a replicate pool.
 
 ```{r idr3}
 
@@ -586,9 +695,9 @@ idrm_kruskal = kruskalIDRm(x, r, g)
 
 ```
 
-Now we may consider the difference in treating `P1` and `P2` as replicate
-pools. Due to gene filtering, there may be a few genes that are absent from the
-3-way analysis.
+How do results change when treating `P1` and `P2` as replicate pools? Due to
+gene filtering, there may be a few genes that are absent from the 3-way
+analysis; we will only consider the intersection of genes from both.
 
 ```{r idr3_unpack}
 
@@ -597,13 +706,13 @@ IDRm = idrm_kruskal$idr$IDR
 names(IDRm) = rownames(idrm_kruskal$kruskal_pvals)[idrm_kruskal$is_replicated]
 
 # Subsetting IDR values over shared tests
-gnoms = intersect(names(IDR), names(IDRm))
-IDR = IDR[gnoms]
-IDRm = IDRm[gnoms]
+genes_shared = intersect(names(IDR), names(IDRm))
+IDR = IDR[genes_shared]
+IDRm = IDRm[genes_shared]
 
 ```
 
-Below we plot log-transformed IDR values from both analyses.
+Below we plot log-transformed IDR values from both analyses:
 
 ```{r idrvidr}
 
@@ -625,7 +734,7 @@ abline(0, 1, lty = 2, col = "black")
 legend(
   "topleft",
   legend = paste(
-    c("no rep2, no rep3", "no rep2, rep3", "rep3, no rep2", "rep2, rep3"),
+    c("irrep2, irrep3", "irrep2, rep3", "rep3, irrep2", "rep2, rep3"),
     "n =",
     table(gtype0)
   ),
@@ -634,16 +743,58 @@ legend(
 
 ```
 
-We can see from this plot that there are slightly more reproducible tests 
-called in the 3-way analysis. Notice also that the most reproducible tests are
-assigned greater membership probability to the reproducible component in the
-new analysis.
+Above we can see that there are slightly more reproducible tests called in the 
+3-way analysis. Notice also that the most reproducible tests are assigned 
+greater membership probability to the reproducible component in the new 
+analysis.
 
-## Extensions of IDR Analysis
+## Other Extensions to IDR Analysis
 
+In addition to high-level functions such as `kruskalIDRm`, `scider` implements 
+new tools for probing lower-level IDR analysis. It was mentioned above that 
+`est.IDRm` is the underlying function behind IDR analysis in `scider`. The 
+arguments to this function include a matrix of signals, and initialized 
+parameter values for the underlying fit. Consider signals from the
+three-replicate analysis above: log-transformed p-value from gene-level
+Kruskal-Wallis tests. With `est.IDRm` we can reproduce the IDR values of this
+analysis exactly:
+
+```{r lowlevel}
+
+signals = -log10(na.omit(idrm_kruskal$kruskal_pvals))
+
+idr = est.IDRm(
+  signals,
+  mu = 2, sigma = 2, rho = 0.5, p = 0.01)
+
+print(all(idrm_kruskal$idr$IDR == idr$IDR))
+
+```
+
+
+```{r sample}
+
+idr_sample = est.IDRm.sample(x = signals,
+                             frac = 0.7,
+                             nsamp = 10,
+                             mu = 1, sigma = 0.5,
+                             rho = 0.7, p = 0.05)
+
+bxp(idr_sample$para_bp, ylim = c(0,3), main = "Fit Parameter Values")
+points(unlist(idr$para), pch = 4, col = "red")
+
+```
+
+```{r sample_show}
+
+plot(idr_sample$mean_idr,idr_sample$sd_idr,
+     xlab = "Mean Irrep. Membership",
+     ylab = "Standard Deviation of Irrep. Membership")
+
+```
 ## Other IDR Applications: Identification of upstream regulators
 
-The IDR framework can be applied to many other kinds of signals. 
+The IDR framework can be applied to many other kinds of signals.
 Table S2. Normalized mRNA counts and associated significant hits obtained
 from knockdown of 6 known and 17 candidate signaling regulators, and 121
 transcriptional regulators. The "Normalized" sheet shows the normalized mRNA
