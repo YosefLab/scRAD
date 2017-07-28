@@ -126,19 +126,19 @@ al. 2017.
 ## PAM Clustering via Dimension Reduction
 
 If expression data from multiple batches has been properly normalized, we may 
-attempt to relate cell expression profiles to eachother based on their pairwise
+attempt to relate cell expression profiles to each other based on their pairwise
 distances. In high-dimensional data such as these, many axes of variation are 
 random and noisy: they do not inform us of the underlying cell state. Dimension
 reduction techniques such as Principal Components Analysis (PCA) allow us to 
 represent the data with a smaller number of features with high signal-to-noise 
-ratios. Distances computed on these features may be used partion or cluster
+ratios. Distances computed on these features may be used partition or cluster
 cells according to cell state. 
 
 Partitioning Around Medoid (PAM) is a clustering algorithm that searches for a 
 set of `k` medoids spanning the data set, mapping each cell to a cluster 
 represented by the closest medoid. Because the number of clusters, `k`, is 
 unspecified at the beginning of an analysis, it is common to choose a value of 
-`k` that maximizes the "overall average silhoutte width": the average over all 
+`k` that maximizes the "overall average silhouette width": the average over all 
 sample "silhouette" values, quantifying the extent to which a sample clusters 
 with its own cluster over others. This procedure is implemented in `pamk`
 exported by the `fpc` package.
@@ -251,7 +251,7 @@ legend(
 # Reproducible Gene Modules
 
 Given access to multiple samples of homologous single-cell populations, it may 
-be important to identify common sets of covarying genes or "reproducible gene 
+be important to identify common sets of co-varying genes or "reproducible gene 
 modules." Reproducibly correlated gene modules may inform us of novel 
 biological mechanisms in these systems.
 
@@ -268,7 +268,7 @@ analysis. The first step involves identifying gene-gene pairs that are
 first consider a simple threshold-based reproducibility criterion and turn to
 other options later in the vignette. The second step is hub-identification in
 the reproducible gene-gene graph. The goal of this step is to identify genes
-that play critical roles in the reproducible covariance structure. The third
+that play critical roles in the reproducible co-variance structure. The third
 step is the least critical, clustering hub genes into "reproducible modules."
 
 ## Defining a Reproducible Gene-Gene Adjacency Matrix
@@ -316,7 +316,7 @@ table(is_hub)
 
 ```
 
-Visualizing the subgraph of hubs below we can see that there is some
+Visualizing the sub graph of hubs below we can see that there is some
 interesting structure.
 
 ```{r hub_show}
@@ -450,7 +450,7 @@ tsne_obj_hub = Rtsne(module_scores,
 Below we can see that this "reproducible" tSNE manifold is different from the 
 original above. There is a smoother transition from `c1` to `c2`, `c3`, and on 
 to a merged `c4-5` cluster. This gradual progression is one motivation for
-focusing on extremal clusters (not `c2`) for differential expression analysis.
+focusing on extreme clusters (not `c2`) for differential expression analysis.
 
 ```{r module_scores_tsne_show}
 
@@ -497,7 +497,7 @@ signature analyses.
 Our first method models the log-expression of each gene with gene-specific
 linear models. For each gene we estimate a separate offset, cluster effect
 (`c1` vs `c3-5`), and donor effects (`P1` or `P2` vs `P3`) to model the
-expression of that gene across all cells in th study, excluding cells in `c2`.
+expression of that gene across all cells in the study, excluding cells in `c2`.
 
 ```{r lm}
 
@@ -522,7 +522,7 @@ plot(-bio_effect_results$Estimate,
 
 Given there are less than 10,000 tests, it is obvious that the p-value 
 distribution is skewed heavily toward low values. This is not particularly 
-suprising given that cell clustering is based on the expression data itself.
+surprising given that cell clustering is based on the expression data itself.
 
 A notable limitation of this simple model is that it does not include 
 interactions between donor and cluster: not only can there be no attribution of
@@ -554,7 +554,7 @@ correlated and higher on average.
 
 Due to small numbers of cells in the first two donors, the analysis presented 
 in our manuscript pooled cells from donors `P1` and `P2` in order to form two 
-replicate groups: `P12` and `P3`. Note that IDR tools impemented in the CRAN 
+replicate groups: `P12` and `P3`. Note that IDR tools implemented in the CRAN 
 [idr](https://cran.r-project.org/web/packages/idr/index.html) package are
 designed to analyze only 2 replicates.
 
@@ -674,7 +674,7 @@ legend(
 ```
 
 Beyond the small number of insignificant reproducible tests, the IDR criterion 
-appears to be be stricter than our significance criterion, selecting a smaller
+appears to be stricter than our significance criterion, selecting a smaller
 set of tests with uniform results across replicate pools.
 
 ## Irreproducible Discovery Rate with Many Replicates
@@ -683,7 +683,7 @@ In the `scider` package we have modified code from the CRAN
 [idr](https://cran.r-project.org/web/packages/idr/index.html) package to handle
 more than 2 replicates, as prescribed in the authors' original manuscript. The 
 many-replicate `est.IDRm` function implemented in `scider` is adapted from the 
-2-replicate `est.IDR` in `idr`, inlcuding some new error messages.
+2-replicate `est.IDR` in `idr`, including some new error messages.
 
 Using this broader functionality, we may choose to perform a similar analysis
 as in the previous subsection, but treat each donor as a replicate pool.
@@ -748,62 +748,79 @@ Above we can see that there are slightly more reproducible tests called in the
 greater membership probability to the reproducible component in the new 
 analysis.
 
-## Other Extensions to IDR Analysis
+# Biomarker and Signature Analyses
 
-In addition to high-level functions such as `kruskalIDRm`, `scider` implements 
-new tools for probing lower-level IDR analysis. It was mentioned above that 
-`est.IDRm` is the underlying function behind IDR analysis in `scider`. The 
-arguments to this function include a matrix of signals, and initialized 
-parameter values for the underlying fit. Consider signals from the
-three-replicate analysis above: log-transformed p-value from gene-level
-Kruskal-Wallis tests. With `est.IDRm` we can reproduce the IDR values of this
-analysis exactly:
+Before diving into low-level IDR analysis methods in the last section, we will
+discuss additional high-level analyses that can be implemented using `scider`
+tools, including new examples of general IDR-based analyses and meta-analysis.
 
-```{r lowlevel}
+## Marker Prediction
 
-signals = -log10(na.omit(idrm_kruskal$kruskal_pvals))
+In Gayo et al. 2017, we nominate potential bio markers for sub-populations by 
+synthesizing multiple analyses: we consider the set of hub genes that are 
+differentially-expressed between our target population, `c1`, and extreme 
+populations `c3-c5`. The hub condition requires that the transcript shows 
+robust and reproducible co-expression with many other genes, while the 
+differential expression condition requires specificity. Lists of hub genes and
+differentially expressed genes are intersected with a list of transcripts
+encoding known surface markers in order to generate a final list of candidates.
 
-idr = est.IDRm(
-  signals,
-  mu = 2, sigma = 2, rho = 0.5, p = 0.01)
+The `getMarkers` function implements all of these pieces, including IDR-based 
+differential expression analysis and reproducible hub identification. The code 
+below can be used to reproduce the marker prediction from our main analysis.
 
-print(all(idrm_kruskal$idr$IDR == idr$IDR))
+```{r markers}
+
+x = lexpr
+g = factor(c("c1",NA,rep("c3-5",3))[factor(clustering)])
+r = donor
+r_de = factor(c(rep("P12",2),"P3")[donor])
+
+# Loading external marker list
+search_page = "http://www.proteinatlas.org/search"
+search_terms = "protein_class%3APredicted+membrane+proteins"
+query_format = "format=tab"
+dbdat = read.table(
+  paste0(search_page,"/",search_terms,"?",query_format),
+           sep = "\t",quote = "", header = TRUE)
+external_markers = intersect(as.character(dbdat$Gene),rownames(x))
+
+markers = getMarkers(x = x, r = r, r_de = r_de, pair_pthresh = 0.01474,
+                 g = g, g_target = "c1",
+                 external_markers = external_markers,
+                 plot_venn = TRUE)
+
 
 ```
 
+While `x`, `r`, `g` and `pair_pthresh` hold the same meaning as in other
+functions, there are a couple new arguments:
 
-```{r sample}
+* `r_de`: Both the hub analysis and differential expression analysis require a 
+replicate (`r`) argument, but they need not be the same. If `r_de` is 
+specified, it is passed to `kruskalIDRm` as the `r` argument.
 
-idr_sample = est.IDRm.sample(x = signals,
-                             frac = 0.7,
-                             nsamp = 10,
-                             mu = 1, sigma = 0.5,
-                             rho = 0.7, p = 0.05)
+* `g_target`: `kruskalIDRm` returns measures of significance and
+reproducibility, but it does not assign directionality of differential
+expression. By specifying this argument, we will only consider
+genes/transcripts that exhibit average up-regulation in the target `g` level.
 
-bxp(idr_sample$para_bp, ylim = c(0,3), main = "Fit Parameter Values")
-points(unlist(idr$para), pch = 4, col = "red")
+The Venn diagram above summarizes the output list of gene sets for visual
+inspection.
 
-```
-
-```{r sample_show}
-
-plot(idr_sample$mean_idr,idr_sample$sd_idr,
-     xlab = "Mean Irrep. Membership",
-     ylab = "Standard Deviation of Irrep. Membership")
-
-```
 ## Other IDR Applications: Identification of upstream regulators
 
-The IDR framework can be applied to many other kinds of signals.
-Table S2. Normalized mRNA counts and associated significant hits obtained
-from knockdown of 6 known and 17 candidate signaling regulators, and 121
-transcriptional regulators. The "Normalized" sheet shows the normalized mRNA
-counts for the 128-target genes (including 10 control genes; rows) upon
-knockdown of indicated genes (columns).
-Table S7. Normalized mRNA counts and associated significant hits obtained
-from knockdown of 11 Plk-dependent phosphoproteins. The "Normalized" sheet
-shows the normalized mRNA counts for the 128-target genes (including 10
-control genes; rows) upon knockdown of indicated genes (columns).
+In the previous section we applied the IDR framework to differential
+expression, often identifying tests with genes or transcripts. In this section
+we will explore how these methods can be applied to other kinds of signals,
+such as gene signatures defined from related data sets.
+
+Consider a knockdown microaaray data set collected by Chevrier et al. 2011. In 
+the accompanying study, investigators considered the effect of knocking down 
+signaling regulators, transcriptional regulators, and Plk-dependent 
+phosphoproteins on the mRNA expression of mouse dendritic cells (DCs).
+Normalized expression data for 128 genes can be downloaded from the NCBI
+manuscript [website](https://www.ncbi.nlm.nih.gov/pmc/articles/PMC3809888/).
 
 ```{r get_chev}
 
@@ -819,13 +836,18 @@ shrna_counts = do.call(cbind,
                          x}))
 
 aheatmap(
-  log1p(shrna_counts),
-  main = paste("Normalized mRNA log-counts across",
+  log1p(shrna_counts) - rowMeans(log1p(shrna_counts)),
+  main = paste("Centered mRNA log-counts across",
                ncol(shrna_counts),
                "shRNA knockdowns")
   )
 
 ```
+
+In the visualization above we have centered each of the rows (assayed genes) so
+as to make them comparable. Because these are mouse genes, we will need to map 
+them to human genes in order to generate expression signatures. This can be
+accomplished using the `biomaRt` package:
 
 ```{r map_chev}
 
@@ -849,6 +871,15 @@ shrna_expr = log(shrna_counts + 1)[uniq_gene_map$MGI.symbol, ]
 
 ```
 
+Now that we have normalized expression data mapped to human gene symbols, we 
+can go about defining signature values for each cell in our data set. While the
+analysis presented in Gayo et al. 2017 relied on "weighted"" signatures based 
+on models of missing data, here we use a simple signature equal to the opposite
+of the correlation between centered single-cell and micro array profiles. We'll 
+refer to these signatures as an "(Unweighted) Upstream Regulatory Scores"
+because they score the distance of a cell profile from expression profiles in
+which specific regulators have been inhibited.
+
 ```{r prep_chev}
 
 upstream_scores = -cor(shrna_expr - rowMeans(shrna_expr),
@@ -856,7 +887,7 @@ upstream_scores = -cor(shrna_expr - rowMeans(shrna_expr),
 
 aheatmap(
   upstream_scores,
-  annCol = list(clustering),annColors = list(cluster_cols[order(o)]),
+  annCol = list(Clusters = clustering),annColors = list(Clusters = cluster_cols[order(o)]),
   breaks = 0,
   main = paste("(Unweighted) Upstream Regulatory Scores for",
                ncol(shrna_counts),
@@ -866,6 +897,10 @@ aheatmap(
 
 ```
 
+These scores may not be too meaningful in absolute terms, but differences in
+these signatures could hint at specific regulatory activity differences between
+cell populations. Testing for differences in signatures between cell population
+is conceptually similar to differential expression, and in some cases we may be address the problem with the same tools. Below we utilize `kruskalIDRm` for differential signature analysis:
 
 ```{r idr_chev}
 
@@ -875,15 +910,24 @@ g = factor(c("c1", NA, rep("c3-5", 3))[factor(clustering)])[is_included]
 r = factor(c(rep("P12", 2), "P3")[donor[is_included]])
 idrm_kruskal_pool_shrna = kruskalIDRm(x, r, g)
 
+```
+
+We can visualize the results in a volcano plot. Note that TBK1 appears as one
+of the reproducibly up-regulated scores:
+
+```{r idr_chev_show}
+
+# Computing Mean Differences in Scores between c1 and c3-5
 mean_sigs = aggregate(t(x), by = list(cluster = g, pool = r), FUN = mean)
-lfc = colMeans(mean_sigs[, -c(1:2)][mean_sigs$cluster == "c1", ] -
+diff_scores = colMeans(mean_sigs[, -c(1:2)][mean_sigs$cluster == "c1", ] -
                  mean_sigs[, -c(1:2)][mean_sigs$cluster != "c1", ])
 
+# Plot Volcano
 plot(
-  lfc[rownames(idrm_kruskal_pool_shrna$kruskal_pvals)],
+  diff_scores[rownames(idrm_kruskal_pool_shrna$kruskal_pvals)],
   -log10(idrm_kruskal_pool_shrna$idr$IDR),
   pch = 21,
-  bg = 1 + (idrm_kruskal_pool_shrna$idr$IDR < 0.05),
+  bg = c("black","blue")[1 + (idrm_kruskal_pool_shrna$idr$IDR < 0.05)],
   main = paste("shRNA Analysis: c1 vs c3-5"),
   ylab = "-log10(IDR)",
   xlim = c(-0.5, 0.5),
@@ -893,11 +937,11 @@ plot(
 
 abline(h = -log10(0.05),
        lty = 2,
-       col = 2)
+       col = "blue")
 
 # Label Tbk1
 is_tbk1 = rownames(idrm_kruskal_pool_shrna$kruskal_pvals) == "Tbk1"
-tbk1_x = lfc[rownames(idrm_kruskal_pool_shrna$kruskal_pvals)][is_tbk1]
+tbk1_x = diff_scores[rownames(idrm_kruskal_pool_shrna$kruskal_pvals)][is_tbk1]
 tbk1_y = -log10(idrm_kruskal_pool_shrna$idr$IDR)[is_tbk1]
 lines(c(tbk1_x,tbk1_x + 0.15),c(tbk1_y,tbk1_y))
 points(tbk1_x,tbk1_y,pch = 21,bg = 2)
@@ -905,21 +949,45 @@ text(pos = 4,tbk1_x+ 0.15,tbk1_y,labels = "Tbk1")
 
 ```
 
-# Other Meta-Analysis Utilities
+## Non-IDR Signature Meta-Analysis Utilities
+
+IDR analysis may not feasible in some cases, including situations in which the 
+number of tests/genes/signatures is small. In this subsection we consider a 
+smaller set of signatures based on a data set from [Amit et al. 
+2009](https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE17721). This study 
+analyzed bone marrow-derived dendritic cells perturbed by various TLR agonists,
+comparing expression profiles to control profiles. We can access the data using
+the `GEOquery` package:
 
 ```{r get_tlr}
 
 # Download GEO Data
 options('download.file.method' = 'curl')
-geo_set = getGEO("GSE17721")[[1]]
+geo_set = suppressWarnings({suppressMessages({getGEO("GSE17721")[[1]]})})
 
 # Aggregate by sample biotype and gene symbol
 meta_data = t(simplify2array(strsplit(as.character(geo_set$title),
                                       split = ", ")))
+
+# Perturbation and Hour
 bio_type = factor(gsub("ontrol", "",
-                      paste0(meta_data[, 1], gsub(
-                      "_.*", "", meta_data[, 2]
+                      paste0(meta_data[, 1],"_",gsub(
+                      "_.*", "h", meta_data[, 2]
                       ))))
+table(bio_type)
+
+```
+
+Each perturbation has been assayed over multiple time points and, sometimes, 
+multiple times. In order to prepare the matrix for signature calculation we 
+will aggregate over replicates, averaging features sharing gene symbols. We 
+will also only consider late perturbations and 0-hour control in the analysis 
+that follows. Late perturbations may be most relevant because our single cells
+were stimulated over the course of 2 days.
+
+```{r prep_tlr}
+
+# Average by gene symbol and bio type
 gene_symbol = factor(featureData(geo_set)$"Gene Symbol")
 
 tlr_array = t(aggregate(t(aggregate(
@@ -934,15 +1002,18 @@ ambiguous_symbols = unique(unlist(strsplit(levels(gene_symbol)[grepl(" /// ",
 tlr_array = tlr_array[!rownames(tlr_array) %in% ambiguous_symbols,]
 
 # Select 0-hour control and 24-hour perturbations
-tlr_array  = tlr_array [, grepl("[^C]24|C0", colnames(tlr_array))]
+tlr_array  = tlr_array [, grepl("[^C]_24|C_0", colnames(tlr_array))]
 
 aheatmap(
-  log1p(tlr_array),
-  main = paste("Normalized mRNA log-abundance across",
+  log1p(tlr_array) - rowMeans(log1p(tlr_array)),
+  main = paste("Centered mRNA log-abundance across",
                ncol(tlr_array),
                "bulk samples")
   )
 ```
+
+As in the previous sub-section, we will need to map between mouse and human
+gene symbols prior to signature definition.
 
 ```{r map_tlr}
 gene_map = getLDS(
@@ -971,14 +1042,19 @@ tlr_expr = log(tlr_array)[uniq_gene_map$MGI.symbol,]
 
 ```
 
-```{r prep_tlr}
+We will define "TLR Stimulation Scores" as the correlation between centered
+single-cell and array profiles, as they score the similarity of a cell profile
+to expression profiles in which specific TLRs have been stimulated.
+
+```{r score_tlr}
 
 stim_scores = cor(tlr_expr - rowMeans(tlr_expr),
                  sc_expr - rowMeans(sc_expr))
 
 aheatmap(
   stim_scores,
-  annCol = list(clustering),annColors = list(cluster_cols[order(o)]),
+  annCol = list(Clusters = clustering),
+  annColors = list(Clusters = cluster_cols[order(o)]),
   breaks = 0,
   main = paste("(Unweighted) TLR Stimulation Scores for",
                nrow(stim_scores),
@@ -986,26 +1062,53 @@ aheatmap(
   )
 ```
 
-```{r meta_tlr}
+Now, although we did not consider the point in Gayo et al. 2017, if we note the
+similarity between this data matrix and the matrix of upstream regulatory
+scores, we might consider running the same type of IDR-based differential
+signature analysis as above. Unfortunately, the smaller number of signatures in
+this case can complicate the underlying statistical inference. Running the same
+analysis as before, we come across an error message:
+
+```{r idr_tlr}
 
 is_included = !clustering %in% "c2"
 x = stim_scores[, is_included]
 g = factor(c("c1", NA, rep("c3-5", 3))[factor(clustering)])[is_included]
 r = factor(c(rep("P12", 2), "P3")[donor[is_included]])
+tryCatch({idr_kruskal_pool_tlr = kruskalIDRm(x, r, g)},
+         error = function(e){print(e)}
+)
+
+```
+
+This error indicates that the IDR fit converged to a point where all tests are 
+called irreproducible with 100% probability. As the error message suggests, we 
+could attempt to find a set of initial parameters for which the fit converges 
+properly; on the other hand, it may be more straight-forward to consider an 
+alternative meta-analysis approach.
+
+The `kruskalMeta` function implements a routine similar to `kruskalIDR`, except
+that it applies Stouffer p-value combination rather than estimating IDR values.
+While this method does not address reproducibility, it is not fit based, and is
+therefore significantly more robust. Below we present an example of how to run
+this command and visualize the results in a volcano plot.
+
+```{r meta_tlr}
+
 meta_kruskal_pool_tlr = kruskalMeta(x, r, g)
 
 mean_sigs = aggregate(t(x), by = list(cluster = g, pool = r), FUN = mean)
-lfc = colMeans(mean_sigs[, -c(1:2)][mean_sigs$cluster == "c1", ] -
+diff_scores = colMeans(mean_sigs[, -c(1:2)][mean_sigs$cluster == "c1", ] -
                  mean_sigs[, -c(1:2)][mean_sigs$cluster != "c1", ])
 
 is_sig = meta_kruskal_pool_tlr$FDR < 0.001
 
 plot(
-  lfc[rownames(meta_kruskal_pool_tlr$kruskal_pvals)],
+  diff_scores[rownames(meta_kruskal_pool_tlr$kruskal_pvals)],
   -log10(meta_kruskal_pool_tlr$FDR),
   pch = 21,
-  bg = 1 + is_sig,
-  main = paste("TLR Analysis: c1 vs c3-5"),
+  bg = c("black",brewer.pal(nrow(x)-1,"Set1")),
+  main = paste("TLR Stimulation Analysis: c1 vs c3-5"),
   ylab = "-log10(FDR)",
   xlim = c(-0.1, 0.1),
   ylim = c(0, 20),
@@ -1016,20 +1119,28 @@ abline(h = -log10(0.001),
        lty = 2,
        col = 2)
 
-# Labels
-text(lfc[rownames(meta_kruskal_pool_tlr$kruskal_pvals)][is_sig],
+# Label
+text(diff_scores[rownames(meta_kruskal_pool_tlr$kruskal_pvals)][is_sig],
   -log10(meta_kruskal_pool_tlr$FDR)[is_sig],
   pos = 3,
   labels = names(which(is_sig)))
 
 ```
 
+One of the results of this analysis are that, compared to `c3-5` cells, `c1` 
+cells are significantly more similar to PolyI:C induced mouse cells. This may 
+suggest that PolyI:C induction could enrich for `c1` cells over `c3-5` cells, 
+but we may wonder, in more absolute terms, which type of induction is most 
+`c1`-like at the expense of all other cell states: `c3-5`-like and otherwise.
+One way to address this problem is to analyze the distributions of TLR
+induction scores for `c1`, considering replicate pools to avoid batch effects.
+
 ```{r meta_tlr2}
 
 is_included = clustering %in% "c1"
-x0 = stim_scores[, is_included]["C0",]
-x = stim_scores[, is_included][-which(rownames(stim_scores) == "C0"),]
-r = factor(c(rep("P12",2),"P3")[donor[is_included]])
+x0 = stim_scores[, is_included]["C_0h",]
+x = stim_scores[, is_included][-which(rownames(stim_scores) == "C_0h"),]
+r = factor(c(rep("P12", 2), "P3")[donor[is_included]])
 
 # CDFs
 for (p in levels(r)) {
@@ -1049,22 +1160,32 @@ for (p in levels(r)) {
 
 ```
 
+The CDFs above suggest that PolyI:C induced mouse cells might be 
+most similar to `c1`. We can take advantage of a control signature (similarity 
+to the control sample) in order to define 5 separate Kolmogorov–Smirnov (KS) 
+tests: are any of the TLR induction signature distributions significantly
+different from the control signature distribution?
+
+The `ksMeta` function in `scider` can run these 5 tests in all 2 replicate
+pools, applying the same meta-analysis procedure as `kruskalMeta`:
+
 ```{r meta_tlr2_test}
 
-meta_ks_pool_tlr = ksMeta(x,x0,r)
+meta_ks_pool_tlr = ksMeta(x,x0,r,exact = TRUE, alternative = "less")
+
 stopifnot(all(meta_ks_pool_tlr$is_replicated))
 
 mean_sigs = aggregate(t(x), by = list(pool = r), FUN = mean)
 mean_sigs0 = aggregate(x0, by = list(pool = r), FUN = mean)
-lfc = colMeans(mean_sigs[,-1] - mean_sigs0[,-1])
+diff_scores = colMeans(mean_sigs[,-1] - mean_sigs0[,-1])
 
 is_sig = meta_ks_pool_tlr$FDR < 0.001
   
 plot(
-  lfc,
+  diff_scores,
   -log10(meta_ks_pool_tlr$FDR),
   pch = 21,
-  bg = 1 + is_sig,
+  bg = brewer.pal(nrow(x),"Set1"),
   main = paste("TLR Analysis: c1 Similarity"),
   ylab = "-log10(FDR)",
   xlim = c(-0.1, 0.1),
@@ -1076,40 +1197,186 @@ abline(h = -log10(0.001),
        lty = 2,
        col = 2)
 
-# Label Tbk1
-text(lfc[is_sig],
+# Label
+text(diff_scores[is_sig],
   -log10(meta_ks_pool_tlr$FDR)[is_sig],
-  pos = 3,
+  pos = 4,
   labels = names(which(is_sig)))
 
 ```
 
-# Marker Prediction
+It would appear from the volcano plot above that PolyI:C exhibits the most 
+significant positive deviation from control similarity, suggesting again that
+this form of induction is a good candidate for generating `c1`-like cell
+states.
 
-In the main manuscript we describe why differentially-expressed hub genes are 
-good biomarker candidates. The `getMarkers` function is a wrapper for IDR-based
-differential expression analysis and reproducible hub identification. The code
-below can be used to reproduce the marker prediction from our main analysis.
+## IDR-Based Reproducible Module Analysis
 
-```{r markers}
+In the final part of this section we will introduce one more IDR-based in 
+`scider`. In the previous section we have discussed multiple steps for 
+reproducible module analysis. In the first step of this analysis we define a 
+gene-gene graph by identifying pairs with reproducibly high levels of 
+correlation. The `get.repro.thresh.adjacency` function identifies these pairs 
+by calling correlation below a modeled p-value threshold. We offer a second 
+function, `get.repro.idr.adjacency`, that selects these pairs by running IDR 
+analysis on the same matrix of p-values, calling pairs below a modeled IDR 
+threshold. Unfortunately this inference is slow enough to prohibit its
+application to full-sized expression matrices. In this sub-section we will
+illustrate the function using the reasonably small number of upstream regulator
+scores, in order to define "reproducible signature modules."
 
-x = lexpr
-g = factor(c("c1",NA,rep("c3-5",3))[factor(clustering)])
+The steps of this analysis are identical to the steps above, including the
+initial adjacency matrix definition step:
+
+```{r idr_A}
+x = upstream_scores
 r = donor
-r_de = factor(c(rep("P12",2),"P3")[donor])
+A = get.repro.idr.adjacency(x,r)
 
-search_page = "http://www.proteinatlas.org/search"
-search_terms = "protein_class%3APredicted+membrane+proteins"
-query_format = "format=tab"
-dbdat = read.table(
-  paste0(search_page,"/",search_terms,"?",query_format),
-           sep = "\t",quote = "", header = TRUE)
+```
 
-external_markers = intersect(as.character(dbdat$Gene),rownames(x))
-markers = getMarkers(x = x, r = r, r_de = r_de, pair_pthresh = 0.01474,
-                 g = g, g_target = "c1",
-                 external_markers = external_markers,
-                 plot_venn = TRUE)
+In the second step we identify "hub signatures": signatures that are
+reproducibly correlated with large numbers of other signatures:
+
+```{r idr_hub}
+
+g = graph.adjacency(A,mode = "undirected")
+is_hub = p.adjust(pzipdegree(g), method = "bonferroni") < 0.01
+table(is_hub)
+
+```
+
+Visualizing the sub graph of signature hubs below we can see that the structure
+of this graph is not particularly interesting.
+
+```{r idr_hub_show}
+
+g_hub = graph.adjacency(A[is_hub,is_hub],mode = "undirected")
+
+plot(g_hub, vertex.size = 5, vertex.color = "white",
+     layout = layout.fruchterman.reingold(g_hub),
+     vertex.label = "",
+     vertex.shape = "circle",
+     vertex.frame.color = "blue")
+
+```
+
+However, if we inspect the correlation matrix we see evidence of two mutually
+antagonistic signature modules, including the signature of TBK1.
+
+```{r idr_hubclust}
+
+# Compute hub-hub correlations per donor
+rep_cor_list = sapply(levels(donor),
+                      simplify = FALSE,
+                      function(p) {
+                        cor(t(x[is_hub,
+                              donor == p]))
+                        })
+
+# Compute median hub correlation matrix
+mediancor = apply(simplify2array(rep_cor_list), 1:2, median)
+
+# Clustering median hub correlation matrix
+hc = hclust(dist(1 - cor(mediancor,
+                         method = "pearson")),
+            method = "complete")
+
+hub_clustering = factor(paste0("sm",cutree(hc, k = 2)))
+
+aheatmap(
+  main = "Median Hub-Signature Correlations",
+  mediancor,
+  breaks = 0,
+  annCol = list(Modules = hub_clustering),
+  annColors = list(Modules = module_cols),
+  distfun = "correlation",
+  hclustfun = "complete"
+)
+
+```
+
+# Other Extensions to IDR Analysis
+
+In addition to high-level functions such as `kruskalIDRm`, `scider` implements 
+new tools for probing lower-level IDR analysis. It was mentioned above that 
+`est.IDRm` is the underlying function behind IDR analysis in `scider`. The 
+arguments to this function include a matrix of signals, and initialized 
+parameter values for the underlying fit. Consider signals from the
+three-replicate analysis above: log-transformed p-value from gene-level
+Kruskal-Wallis tests. With `est.IDRm` we can reproduce the IDR values of this
+analysis exactly:
+
+```{r lowlevel}
+
+signals = -log10(na.omit(idrm_kruskal$kruskal_pvals))
+
+idr = est.IDRm(
+  signals,
+  mu = 2, sigma = 2, rho = 0.5, p = 0.01)
+
+print(all(idrm_kruskal$idr$IDR == idr$IDR))
+
+```
+
+## Sub-Sampling Tests
+
+`scider` offers another low-level function, `est.IDRm.sample`, which runs IDR analysis
+over various sub samples of tests. By running the analysis many times, we can evaluate the stability of our outputs. Below we can take the opportunity to compare the range of fit parameters values after we vary our initial estimates.
+
+```{r sample}
+
+idr_sample = est.IDRm.sample(x = signals,
+                             frac = 0.7,
+                             nsamp = 10,
+                             mu = 1, sigma = 0.5,
+                             rho = 0.7, p = 0.05)
+
+bxp(idr_sample$para_bp, ylim = c(0,3), main = "Fit Parameter Values")
+points(unlist(idr$para), pch = 4, col = "red")
+
+```
+
+The red X's mark the fit parameter values in the previous run. The box plot 
+object exported by `est.IDRm.sample` shows us that even with our new initial 
+parameters, the fit robustly converges on the same final values.
+
+Another element of the output allows us to monitor the relationship between the 
+mean probability of membership of a test to the irreproducible component and
+its relation to the standard deviation of those estimate across samples:
+
+```{r sample_show}
+
+plot(idr_sample$mean_idr,idr_sample$sd_idr,
+     xlab = "Mean Irrep. Membership",
+     ylab = "Standard Deviation of Irrep. Membership")
+
+```
+
+We can see that extreme membership probabilities are quite robust, while
+intermediate estimates are noisy and fairly unreliable.
+
+## Pairwise Correlation Metric
+
+At times it may be useful to consider pairwise signal correlations between replicates. `scider` offers a `corIDR` function that will run pairwise IDR analysis on all signals, returning the correlation parameter from the fit. This parameter translates to the correlation of signal ranks in the reproducible fraction of signals.
+
+```{r cor_idr}
+
+cor_mat_idr = corIDR(signals)
+
+```
+
+Plots such as the one below can be useful in discriminating outlier replicate
+pools.
+
+```{r cor_idr_show}
+
+aheatmap(cor_mat_idr,
+         main = "IDR Correlation",
+         breaks = 0,
+         annCol = list(Donors = factor(levels(donor))),
+         annRow = list(Donors = factor(levels(donor))),
+         annColors = list(Donors = c("lightblue","violet","gold")))
 
 
 ```

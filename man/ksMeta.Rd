@@ -2,9 +2,9 @@
 % Please edit documentation in R/meta.R
 \name{ksMeta}
 \alias{ksMeta}
-\title{Simple Meta-Analysis: Matched Signature Comparison}
+\title{Simple Meta-Analysis: Signature Comparison}
 \usage{
-ksMeta(x, x0, r, var_thresh = 10^-5)
+ksMeta(x, x0, r, var_thresh = 10^-5, ...)
 }
 \arguments{
 \item{x}{an n by m numeric matrix, where m = num of samples, n = num of 
@@ -16,6 +16,8 @@ signatures. Numerical values representing signature values.}
 
 \item{var_thresh}{numeric. Molecules are only analyzed if their variance is 
 greater than this threshold in all replicate groups.}
+
+\item{...}{Additional arguments passed to \code{\link[stats]{ks.test}}).}
 }
 \value{
 a list with the following elements: \itemize{ \item{meta_pvals}{ 

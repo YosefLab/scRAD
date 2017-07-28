@@ -92,7 +92,7 @@ kruskalMeta = function(x,
   )
 }
 
-#' Simple Meta-Analysis: Matched Signature Comparison
+#' Simple Meta-Analysis: Signature Comparison
 #' 
 #' Compare distributions of signature values to a reference distribution (using
 #' \code{\link[stats]{ks.test}}) over multiple replicate experiments, 
@@ -104,6 +104,7 @@ kruskalMeta = function(x,
 #' @param r factor. Sample replicate identity.
 #' @param var_thresh numeric. Molecules are only analyzed if their variance is 
 #'   greater than this threshold in all replicate groups.
+#' @param ... Additional arguments passed to \code{\link[stats]{ks.test}}).
 #'   
 #' @export
 #' 
@@ -134,7 +135,8 @@ kruskalMeta = function(x,
 ksMeta = function(x,
                   x0,
                   r,
-                  var_thresh = 10 ^ -5) {
+                  var_thresh = 10 ^ -5,
+                  ...) {
   is_var = rowSums(sapply(levels(r), function(p) {
     apply(x[, r == p], 1, var)
   }) > var_thresh) == nlevels(r)
@@ -148,7 +150,7 @@ ksMeta = function(x,
   )
   for (p in levels(r)) {
     is_p = r == p
-    ks_list = apply(x[, is_p], 1, ks.test, exact = TRUE, y = x0[is_p])
+    ks_list = apply(x[, is_p], 1, ks.test, ... , y = x0[is_p])
     p_val_matrix[, p] = unlist(lapply(ks_list,
                                       function(x) {
                                         x$p.value
