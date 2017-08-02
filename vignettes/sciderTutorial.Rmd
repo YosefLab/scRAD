@@ -44,38 +44,39 @@ library(GEOquery)
 # Introduction
 
 As single-cell technologies mature and push the boundaries of study resolution 
-and scale, they promise to enrich our understanding of many complex biological 
-systems. In the context of human disease, studies of single donors may prove 
-very fruitful in the characterization and cataloging of diverse cell states. 
-While single-subject studies can be used to generate bold hypotheses, these 
-approaches do not guarantee results applicable to other people with one or more 
-related phenotypes. If the goal of an analysis is to predict phenomena linked 
-to a specific phenotype - in humans, mice, or other models with unknown or 
-uncontrolled sources of variation - it is important to prioritize 
-reproducibility across multiple sources.
+and scale, they promise to enrich our understanding of xeveral complex 
+biological systems. In the context of human disease, studies of single donors 
+may prove very fruitful in the characterization and cataloging of diverse cell 
+states. While single-subject studies can be used to generate bold hypotheses, 
+these approaches do not guarantee results applicable to other individuals with 
+one or more related phenotypes. More generally, if the goal of an analysis is
+to predict phenomena linked to a specific phenotype - in humans, mice, or other
+models with unknown or uncontrolled sources of variation - it is important to 
+prioritize reproducibility across multiple sources.
 
 In this vignette, we will step through an analysis of single-cell RNA-Seq 
 (scRNA-Seq) data collected from 3 human donors. In `Section 2`, we model 
 coarse-grained structures in the expression data, discussing the problem of 
 clustering cells across multiple donors. In `Section 3`, we begin to leverage 
 donor information in order to identify "reproducible gene modules" - axes of 
-expression variation that are common to all (or a subset) donors. `Section 4` 
+expression variation that are common to all (or a subset of) individuals. `Section 4` 
 introduces quantitative tools - based on the Irreproducible Discovery Rate 
 [@li2011], for assessing signal reproducibility across donors. `Section 5`
 summarizes additional tools for IDR-based and IDR-free meta-analysis applicable
 to multi-donor studies. Finally, `Section 6` describes lower-level utilities
 for monitoring reproducibility across donors.
 
-## The Data Set: Dendritic Cells in Elite Controllers
+## The Data Set: Conventional Dendritic Cells (cDCs) in Elite Controllers (ECs)
 
 The sheer diversity of factors that influence complex biological specimens 
 typically results in several uncontrolled axes of experimental variation. When 
 considering samples from human donors (and even those isolated from model 
-systems such as mice), differences in genetics, behavior, exposure, 
-environment, and/or collection point, can confound computational analyses that 
-seek to identify and prioritize putative shared features. Here, we present a 
-generally applicable framework, based on Irreproducible Discovery Rate (IDR), 
-for nominating elements that are reproducibly shared across contrasts.
+systems such as mice), differences, for example, in genetics, behavior,
+exposure, environment, and/or collection point, can confound computational
+analyses that seek to identify and prioritize putative shared features. Here,
+we present a generally applicable framework, based on Irreproducible Discovery
+Rate (IDR), for nominating elements that are reproducibly shared across
+contrasts (i.e., groupings).
 
 More specifically, in this vignette, we consider a scRNA-Seq data set of cells 
 collected from 3 Elite Controllers (ECs) – HIV-infected individuals with 
@@ -83,11 +84,12 @@ undetectable levels of circulating viremia. Previously, EC innate immune
 conventional dendritic cells (cDCs) have been shown to exhibit enhanced 
 antiviral responses but the underlying mechanisms driving this cDC functional 
 phenotype, the fraction of EC cDCs that assume it, and the biomarkers that 
-enrich for it are unknown. In order to examine these questions, we exposed EC 
-donor peripheral blood mononuclear cells (PBMCs) to pseudotyped HIV-1 for 48 
-hours ex vivo, and then isolated single cDCs and performed Smart-Seq2-based 
-scRNA-Seq [@picelli2013]. As a control, matched PBMCs were exposed to media 
-alone for the same period of time and then processed.
+enrich for it are unknown (for additional details, see accompanying manuscript 
+Gayo et al., 2017 and Walker et al., 2013). In order to examine these 
+questions, we exposed peripheral blood mononuclear cells (PBMCs) from each EC
+donor to pseudotyped HIV-1 for 48 hours ex vivo, and then isolated single cDCs
+and performed Smart-Seq2-based scRNA-Seq [@picelli2013]. As a control, matched 
+PBMCs were exposed to media alone for the same period of time and processed.
 
 Below, we load normalized and log-transformed scRNA-Seq expression estimates 
 (see Gayo et al., Supplementary Information for additional details).
@@ -118,25 +120,27 @@ lexpr = lexpr[apply(lexpr, 1, var) > 0, ]
 # Clustering Across Donors
 
 When performing single-cell analyses of multiple donors, it is often important 
-to compare cells across them, i.e. to quantify the extent to which samples from
-different donors contain cells that are representative of the “same” cell 
+to compare cells across them - i.e., to quantify the extent to which samples 
+from different donors contain cells that are representative of the “same” cell 
 state. While there may be biologically meaningful differences in gene 
 expression between fundamentally similar cells collected from different 
 subjects (due to unknown or uncontrolled axes of variation such as genetics, 
 treatment history, environment or the like), characterizing and accounting for 
 those differences can be a challenging task, especially when cells are viewed 
 on a high-dimensional expression manifold. For example, some cell states may be
-represented in greater or lesser numbers across donors, while other cell states
-may be unique to specific donors. Additionally, there may be batch effects due 
-to subtle technical differences in extraction or sample processing. Any effort 
-to decouple these contributions requires careful consideration, and the data 
-adjustments necessary for removing related technical artifacts are beyond the 
-scope of this vignette (for more info see the `scone` package on 
-[Bioconductor](http://bioconductor.org/packages/scone/)). The expression data 
-in this vignette is generated via RSEM [@boli2011], accounting for read depth. 
-The data was processed further via quantile normalization in order to address
-other quality control considerations; a full discussion of methods and
-motivations can be found in the Supplementary Information of Gayo et al. 2017.
+represented in greater or lesser numbers across donors, while others may be 
+unique to specific donors. Additionally, there may be batch effects due to 
+subtle technical differences in extraction and/or sample processing. Any effort
+to decouple these latter technical contributions requires careful 
+consideration, and the data adjustments necessary for removing technical 
+artifacts are beyond the scope of this vignette (for a thorough treatment, see 
+the `scone` package on 
+[Bioconductor](http://bioconductor.org/packages/scone/)). The expression 
+estimates used in this vignette were generated via RSEM [@boli2011], accounting
+for read depth. The data was processed further via quantile normalization in 
+order to address other quality control considerations. A complete discussion of
+methods and motivations can be found in the Supplementary Information of Gayo 
+et al. 2017.
 
 ## Partitioning Around Medoid (PAM) Clustering via Dimension Reduction
 
@@ -154,20 +158,20 @@ Partitioning Around Medoid (PAM) is a clustering algorithm that searches for a
 set of `k` medoids spanning the data set, mapping each cell to a cluster 
 represented by the closest medoid. Because the number of clusters, `k`, is 
 unspecified at the beginning of an analysis, it is common to choose a value of 
-`k` that maximizes the "overall average silhouette width" - the average over 
-all sample "silhouette" values, which quantify the extent to which a sample 
-clusters with its own cluster over others. This procedure is implemented in 
-`pamk` exported by the `fpc` package.
+`k` that maximizes the "overall average silhouette width" - that is, the 
+average over all sample "silhouette" values, which quantify the extent to which
+a sample clusters with its own cluster over others. This procedure is 
+implemented in `pamk` exported by the `fpc` package.
 
 The `pamkd` function, introduced here, performs Partitioning Around Medoid 
-(PAM) clustering over a range of clusters, similar to `pamk`, but it also 
-ranges over a range of principal components, varying the dimensions over which 
-distances are computed. After clustering over a range of dimensions, this 
-function selects a dimension for the data that maximizes the cluster number. 
-This maximal cluster criterion biases the analysis to a representation with the
+(PAM) clustering over a range of clusters, similar to `pamk`, but it examines a
+range of principal components, varying the dimensions over which distances are
+computed. After clustering over a range of PCs (dimensions), this function
+selects a dimension for the data that maximizes the cluster number. This
+maximal cluster criterion biases the analysis to a representation with the 
 largest possible number of clusters constrained by the conditional `pamk` 
 objective; `pamkd` will fail in the absence of tight clusters, spuriously 
-selecting large or maximal values of `k`. Therefore the results of this method 
+selecting large or maximal values of `k`. Therefore, the results of this method
 should only be applied when its selections are robust with respect to varying 
 `maxk` or `maxd`.
 
@@ -203,11 +207,11 @@ table(pamkd_obj$pamobject$clustering,
 ```
 
 Interestingly, only one cluster, cluster `3`, is unique to any donor; in other 
-analyses, there could be many more donor-specific clusters. Cells like cluster 
-3 may be present in other donors, and single-donor analyses could be used to 
-generate candidate markers for additional experimental exploration. However, 
-the focus of the present analysis is the space of reproducible phenomena – 
-here, features common to EC cDCs.
+analyses, there could be many more donor (or donor subset)-specific clusters.
+Cells like cluster 3 may be present in other donors, and single-donor analyses
+could be used to generate candidate markers for additional experimental
+exploration. However, the focus of the present analysis is the space of
+reproducible phenomena – in this instance, features common to EC cDCs.
 
 ## Visualizing Results with tSNE
 
@@ -270,7 +274,7 @@ legend(
 Given access to multiple samples of homologous single-cell populations, it may 
 be important to identify common sets of co-varying genes or "reproducible gene 
 modules." Reproducibly correlated gene modules may inform us of novel 
-biological mechanisms in these systems.
+biological mechanisms that drive these systems.
 
 If cell populations are heterogeneous, this kind of analysis may naturally 
 follow a clustering step, uncovering reproducible modes of intra-cluster 
@@ -308,12 +312,11 @@ In the call above, we have set the following argument values:
 * `r` = donor. Correlation matrices will be separately computed across all
 three donors.
 * `pair_pthresh` = 0.01474. Precisely 2 times the normal CDF of the opposite of
-the  95% normal quantile divided by the 75% normal quantile. Following
+the  95% normal quantile divided by the 75% normal quantile. Following 
 z-scaling of donor upper-triangular correlation matrices, a pair will be called
-"reproducible" if its z-value corresponds to a 2-tailed p-value below this
-threshold. The unusual threshold value - an artifact of an alternative
-transformation scheme - was selected to perfectly reproduce the results in Gayo
-et al. 2017.
+"reproducible" if its z-value corresponds to a 2-tailed p-value below this 
+threshold. This threshold was use to generate the plots in Gayo et al. 2017, 
+though primary results are the same for similar choices of threshold.
 
 If a gene-pair's p-value falls below `pair_pthresh` in all donors, an 
 undirected edge is drawn between the two genes. Due to the small number edges 
@@ -358,18 +361,18 @@ plot(g_hub, vertex.size = 5, vertex.color = "white",
 ## Hub Clustering and Reproducible Module Annotation
 
 In the last step of our reproducible module analysis, we aim to cluster hub 
-genes into reproducible modules. `scider` provides no tools for this step, but
-we may rely on other common libraries: there are many ways to cluster genes 
+genes into reproducible modules. `scider` provides no tools for this step, but 
+we may rely on other common libraries as there are many ways to cluster genes 
 based on their correlation sub-matrix. For example, we could have added weights
 to the graph above, based on donor-averaged gene-gene correlation measures. 
 Several `igraph` functions could then be used with the resulting graph in order
 to identify communities of hubs.
 
 To illustrate a simple example below, we use the `stats` package to perform 
-complete hierarchical clutering on the median hub-hub correlation matrix: the 
-element-wise median of all donor-specific hub-hub correlation matrices. We
-compute distances between genes by computing correlations of correlations:
-genes with similar correlations to other genes are placed close together
+complete hierarchical clustering on the median hub-hub correlation matrix: the 
+element-wise median of all donor-specific hub-hub correlation matrices. We 
+compute distances between genes by computing correlations of correlations: 
+genes with similar correlations to other genes are placed close together 
 according to this metric.
 
 ```{r hubclust}
@@ -395,9 +398,9 @@ table(hub_clustering)
 
 ```
 
-Setting the number of modules to three we find one large module and two smaller
-modules. Visualizing the median correlation below, three appears to be a
-reasonable selection of module number:
+Setting the number of modules to three - motivated by observations above - we
+find one large module and two smaller modules. Visualizing the median
+correlation below, three appears to be a reasonable selection of module number:
 
 ```{r mediancor}
 
@@ -482,8 +485,9 @@ tsne_obj_hub = Rtsne(module_scores,
 
 Below we can see that this "reproducible" tSNE manifold is different from the 
 original above. There is a smoother transition from `c1` to `c2`, `c3`, and on 
-to a merged `c4-5` cluster. This gradual progression is one motivation for
-focusing on extreme clusters (not `c2`) for differential expression analysis.
+to a merged `c4-5` cluster. This gradual progression is one motivation for 
+focusing on extreme clusters (not `c2`) for differential expression analysis
+(see Gayo et al. 2017).
 
 ```{r module_scores_tsne_show}
 
@@ -513,23 +517,23 @@ legend("bottomright",
 At this point in our analysis, we are beginning to study gene-level phenomena. 
 For example, we may start to quantify the extent to which transcripts are up- 
 or down-regulated in `c1` cells vs `c3-5` cells. How do we begin to address 
-patient variability? For example, how do we address expression differences 
-between `c1` cells across donors? In this section, we will first consider a 
+patient variability? For example, how do we find expression differences common
+to `c1` cells across donors? In this section, we will first consider a 
 traditional method for modeling donor biases in the context of differential 
-expression. Then we will contrast modeling results to the results of IDR
-analysis as outlined in [@li2011], taking the opportunity to discuss our
+expression. Then we will contrast modeling results to the results of IDR 
+analysis as outlined in [@li2011], taking the opportunity to discuss our 
 contribution to pre-existing IDR tool set.
 
 Following our discussion of differential expression, we will demonstrate the 
-generalizability of `scider` IDR tools by applying them to two different
+generalizability of `scider` IDR tools by applying them to two different 
 signature analyses.
 
 ## Linear Models of Differential Expression
 
-Our first (traditional) method models the log-expression of each gene with
-gene-specific linear models. For each gene we estimate a separate offset,
-cluster effect (`c1` vs `c3-5`), and donor effects (`P1` or `P2` vs `P3`) to
-model the expression of that gene across all cells in the study occupying the
+Our first (traditional) method models the log-expression of each gene with 
+gene-specific linear models. For each gene, we estimate a separate offset, 
+cluster effect (`c1` vs `c3-5`), and donor effects (`P1` or `P2` vs `P3`) to 
+model the expression of that gene across all cells in the study occupying the 
 extreme clusters, excluding cells in `c2` as explained in 3.4 above.
 
 ```{r lm}
@@ -572,13 +576,13 @@ treated quantitatively with IDR meta-analysis.
 
 Rather than simply identifying genes that show significant evidence of 
 differential expression, we may wish to emphasize differential expression that 
-is "reproducible" across donors. The IDR framework [@li2011] outlines methods
-for comparing results of replicate analyses: e.g., differential expression
-analyses performed separately for each donor. Given a list of significance
-scores (e.g. -log(p-value)), for each donor, we can fit tests to a 2-component
-mixture model: tests are either part of an irreproducible component (in which
-significance rank is uncorrelated across donors) or part of a reproducible
-component (in which significance rank is correlated and higher on average).
+is "reproducible" across donors. The IDR framework [@li2011] outlines methods 
+for comparing results of replicate analyses: e.g., differential expression 
+analyses performed separately for each donor. Given a list of significance 
+scores (e.g. -log(p-value)), for each donor, we can fit tests to a 2-component 
+mixture model: tests are either part of an irreproducible component (in which 
+significance rank is uncorrelated across donors) or part of a reproducible one
+(in which significance rank is correlated and higher on average).
 
 `kruskalIDRm` is a function for stratified gene-level tests of association
 (Kruskal-Wallis H test), followed by IDR analysis on the resulting
@@ -620,7 +624,7 @@ Similar to a false-discovery rate (FDR), IDR values correspond to the
 cumulative fraction of irreproducible tests (genes) for genes of less or equal 
 irreproducible component membership probability.
 
-Below we plot the relationship between IDR values and Bonferroni-adjusted
+Below, we plot the relationship between IDR values and Bonferroni-adjusted
 t-test p-values from the section above.
 
 ```{r idr2vpval}
@@ -657,10 +661,10 @@ legend(
 We can see that 29% of the genes that are called as significantly 
 differentially expressed (adjusted p-value < 0.01) are not reproducibly so (IDR
 < 0.01). These genes are differentially expressed, but they do not vary 
-consistently across the 2 cell pools - i.e. a gene may be differentially
-expressed in one but not the other. The gene could be
-differentially expressed in both pools, but the rank of the difference
-varies substantially between pools:
+consistently across the 2 cell pools - i.e. a gene may be differentially 
+expressed in one but not the other. The gene could also be differentially
+expressed in both pools, but the rank of the difference varies substantially
+between pools:
 
 ```{r pvalvpval_sig}
 
@@ -685,12 +689,12 @@ legend(
 ```
 
 On the other hand, only 8% of genes that exhibit reproducible p-value rank fall
-below our significance threshold. The presence of mutiple tests like this could
-suggest that the significance threshold is too stringent or that there is an 
-issue with the underlying null model used for computing p-values. Beyond the
-small number of insignificant reproducible tests, the IDR criterion appears to
-be stricter than our significance criterion, selecting a smaller set of tests
-with uniform results across replicate pools.
+below our significance threshold. The presence of more tests like this (i.e., a
+higher fraction) could suggest that the significance threshold is too stringent
+or that there is an issue with the underlying null model used for computing
+p-values. Beyond the small number of insignificant reproducible tests, the IDR
+criterion appears to be stricter than our significance criterion, selecting a
+smaller set of tests with uniform results across replicate pools.
 
 ## IDR with Many Replicates
 
@@ -710,8 +714,8 @@ idrm_kruskal = kruskalIDRm(x, r, g)
 
 ```
 
-How do results change when treating `P1` and `P2` as replicate pools? Due to
-gene filtering, there may be a few genes that are absent from the 3-way
+How do our results change when treating `P1` and `P2` as replicate pools? Due
+to gene filtering, there may be a few genes that are absent from the 3-way 
 analysis; we will only consider the intersection of genes from both.
 
 ```{r idr3_unpack}
@@ -761,7 +765,7 @@ legend(
 Above we can see that there are slightly more reproducible tests called in the 
 3-way analysis. Notice also that the most reproducible tests are assigned 
 greater membership probability to the reproducible component in the new 
-analysis.
+analysis (above the y = x diagonal).
 
 # Biomarker and Signature Analyses
 
@@ -771,14 +775,15 @@ tools, including new examples of general IDR-based analyses and meta-analysis.
 
 ## Marker Prediction
 
-In Gayo et al. 2017, we nominate potential bio markers for sub-populations by 
-synthesizing multiple analyses. First, we consider the set of hub genes that are 
-differentially-expressed between our target population, `c1`, and extreme 
+In Gayo et al. 2017, we nominate potential biomarkers for sub-populations by 
+synthesizing multiple analyses. First, we consider the set of hub genes that 
+are differentially-expressed between our target population, `c1`, and extreme 
 populations `c3-c5`. The hub condition requires that the transcript shows 
-robust and reproducible co-expression with many other genes, while the 
-differential expression condition requires specificity. Then, lists of hub genes and
-differentially expressed genes are intersected with a list of transcripts
-encoding known surface markers in order to generate a final list of candidates.
+robust and reproducible co-expression with many other genes, while the second
+differential expression condition requires specificity. Then, lists of hub 
+genes and differentially expressed genes are intersected with a list of 
+transcripts encoding known surface markers in order to generate a final list of
+candidates.
 
 The `getMarkers` function implements all of these pieces, including IDR-based 
 differential expression analysis and reproducible hub identification. The code 
@@ -832,16 +837,18 @@ lapply(markers,head)
 
 ## Other IDR Applications: Identification of upstream regulators
 
-In the previous section we applied the IDR framework to differential
-expression, often identifying tests with genes or transcripts. In this section
-we will explore how these methods can be applied to other kinds of signals,
+In the previous section, we applied the IDR framework to differential 
+expression, often identifying tests with genes or transcripts. In this section,
+we will explore how these methods can be applied to other kinds of signals, 
 such as gene signatures defined from related data sets.
 
-Consider shRNA-knockdown nanostring data set collected by Chevrier et al. 2011. In 
-the accompanying study, investigators considered the effect of knocking down 
-signaling regulators, transcriptional regulators, and Plk-dependent 
-phosphoproteins on the mRNA expression of mouse bone-marrow-derived dendritic cells (BMDCs). Normalized expression data for 128 genes can be downloaded from the NCBI
-manuscript [website](https://www.ncbi.nlm.nih.gov/pmc/articles/PMC3809888/).
+Consider the shRNA-knockdown nanostring data set collected by Chevrier et al. 
+2011 [@chevrier2011]. In the accompanying study, the investigators considered
+the effect of knocking down signaling regulators, transcriptional regulators,
+and Plk-dependent phosphoproteins on the mRNA expression of mouse 
+bone-marrow-derived dendritic cells (BMDCs). Normalized nanostring expression 
+data for 128 genes can be downloaded from the NCBI manuscript 
+[website](https://www.ncbi.nlm.nih.gov/pmc/articles/PMC3809888/).
 
 ```{r get_chev}
 
@@ -892,14 +899,15 @@ shrna_expr = log(shrna_counts + 1)[uniq_gene_map$MGI.symbol, ]
 
 ```
 
-Now that we have normalized expression data mapped to human gene symbols, we
+Now that we have normalized expression data mapped to human gene symbols, we 
 can go about defining signature values for each cell in our data set. While the
 analysis presented in Gayo et al. 2017 relied on “weighted” signatures based on
-models of missing data (see Supplementary Information), here, we use a simple
-signature equal to the opposite of the correlation between centered single-cell
-and nanostring profiles. We will refer to these signatures as an “(Unweighted)
-Upstream Regulatory Scores” because they score the distance of a cell profile
-from expression profiles in which specific regulators have been inhibited.
+models of missing data (see Gayo et al. Supplementary Information), here, we
+use a simple signature equal to the opposite of the correlation between
+centered single-cell and nanostring profiles. We will refer to these signatures
+as an “(Unweighted) Upstream Regulatory Scores” because they score the distance
+of a cell profile from expression profiles in which specific regulators have
+been inhibited.
 
 ```{r prep_chev}
 
@@ -918,10 +926,12 @@ aheatmap(
 
 ```
 
-These scores may not be too meaningful in absolute terms, but differences in
+These scores may not be too meaningful in absolute terms, but differences in 
 these signatures could hint at specific regulatory activity differences between
 cell populations. Testing for differences in signatures between cell population
-is conceptually similar to differential expression, and in some cases we may be address the problem with the same tools. Below we utilize `kruskalIDRm` for differential signature analysis:
+is conceptually similar to differential expression, and in some cases we may
+address the problem with the same tools. Below we utilize `kruskalIDRm` for
+differential signature analysis:
 
 ```{r idr_chev}
 
@@ -973,12 +983,12 @@ text(pos = 4,tbk1_x+ 0.15,tbk1_y,labels = "Tbk1")
 ## Non-IDR Signature Meta-Analysis Utilities
 
 IDR analysis may not feasible in some cases, including situations in which the 
-number of tests/genes/signatures is small. In this subsection we consider a 
+number of tests/genes/signatures is small. In this subsection, we consider a 
 smaller set of signatures based on a data set from [Amit et al. 
-2009](https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE17721). This study 
-analyzed mouse BMDCs perturbed by various TLR agonists,
-comparing expression profiles to control profiles. We can access the data using
-the `GEOquery` package:
+2009](https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE17721)[@amit2009].
+This study analyzed mouse BMDCs perturbed by various TLR agonists, comparing
+expression profiles to control profiles. We can access the data using the
+`GEOquery` package:
 
 ```{r get_tlr}
 
@@ -1000,11 +1010,11 @@ table(bio_type)
 ```
 
 Each perturbation has been assayed over multiple time points and, sometimes, 
-multiple times. In order to prepare the matrix for signature calculation we 
+multiple times. In order to prepare the matrix for signature calculation, we 
 will aggregate over replicates, averaging features sharing gene symbols. We 
-will also only consider late perturbations (24 hours) and 24-hour control in
-the analysis that follows. Late perturbations may be most relevant because our 
-single cells were stimulated over the course of 2 days.
+will also only consider late perturbations (24 hours) and the 24-hour control
+in the analysis that follows. Late perturbations may be most relevant because
+our single cells were stimulated over the course of 2 days.
 
 ```{r prep_tlr}
 
@@ -1108,10 +1118,10 @@ properly; on the other hand, it may be more straightforward to consider an
 alternative meta-analysis approach.
 
 The `kruskalMeta` function implements a routine similar to `kruskalIDR`, except
-that it applies Stouffer p-value combination rather than estimating IDR values.
-While this method does not address reproducibility, it is not fit based,
-requiring no choices of initial parameters. Below we present an example of how
-to run this command and visualize the results in a volcano plot.
+that it applies a standard Stouffer p-value combination rather than estimating
+IDR values. While this method does not address reproducibility, it is not fit
+based, requiring no choices of initial parameters. Below, we present an example
+of how to run this command and visualize the results in a volcano plot.
 
 ```{r meta_tlr}
 
@@ -1158,7 +1168,7 @@ suggest that PolyI:C induction could enrich for `c1` cells over `c3-5` cells.
 ## IDR-Based Reproducible Module Analysis
 
 In the final part of this section we will introduce one more IDR-based analysis
-in `scider`. In the previous section we have discussed multiple steps for 
+in `scider`. In the previous section, we have discussed multiple steps for 
 reproducible module analysis. In the first step of this analysis, we define a 
 gene-gene graph by identifying pairs with reproducibly high levels of 
 correlation. The `get.repro.thresh.adjacency` function identifies these pairs 
@@ -1191,8 +1201,8 @@ table(is_hub)
 
 ```
 
-Visualizing the sub graph of signature hubs below we can see that the structure
-of this graph is densely connected.
+Visualizing the sub graph of signature hubs below, we can see that the
+structure of this graph is densely connected.
 
 ```{r idr_hub_show}
 
@@ -1207,11 +1217,11 @@ plot(g_hub, vertex.size = 5, vertex.color = "white",
 ```
 
 However, if we inspect the correlation matrix we see evidence of two mutually 
-antagonistic signature modules, including the signature of TBK1 - higlighted in
-Gayo et al. 2017. This signature module structure may suggest that the 
+antagonistic signature modules, including the signature of TBK1 - highlighted
+in Gayo et al. 2017. This signature module structure may suggest that the 
 associated upstream regulators are playing coordinated roles in this 
 antagonistic structure. This type of analysis may be useful in predicting 
-relationships between the regulators within the context of our single-cell
+relationships between the regulators within the context of our single-cell 
 system.
 
 ```{r idr_hubclust}
@@ -1290,10 +1300,12 @@ points(unlist(idr$para), pch = 4, col = "red")
 
 ```
 
-`p` represents the proportion of tests that are estimated to be reproducible.
-`rho` represents the correlation coefficient between reproducible test signals.
-`mu` is the relative signal excess in the reproducible component, while `sigma`
-is the relative scale of signal variance in the reproducible component.
+The y-axis above represents parameter estimates over many samples of tests
+(rows). `p` represents the proportion of tests that are estimated to be
+reproducible. `rho` represents the correlation coefficient between reproducible
+test signals. `mu` is the relative signal excess in the reproducible component,
+while `sigma` is the relative scale of signal variance in the reproducible
+component.
 
 The red X's marks above the fit parameter values in the previous run. The box
 plot object exported by `est.IDRm.sample` shows us that even with our new
@@ -1316,7 +1328,11 @@ intermediate estimates are noisy and fairly unreliable.
 
 ## Pairwise Correlation Metric
 
-At times it may be useful to consider pairwise signal correlations between replicates. `scider` offers a `corIDR` function that will run pairwise IDR analysis on all signals, returning the correlation parameter from the fit. This parameter translates to the correlation of signals in the reproducible fraction of signals.
+At times, it may be useful to consider pairwise signal correlations between
+replicates. `scider` offers a `corIDR` function that will run pairwise IDR
+analysis on all signals, returning the correlation parameter from the fit. This
+parameter translates to the correlation of signals in the reproducible fraction
+of signals.
 
 ```{r cor_idr}
 
@@ -1325,8 +1341,8 @@ cor_mat_idr = corIDR(signals)
 ```
 
 Plots such as the one below can be useful in discriminating outlier replicate 
-pools: samples with exhibiting low signal correlation (e.g. < 0.5) with most
-replicates are reproducing signals poorly, and should be considered for
+pools: samples that exhibit lower signal correlation (e.g. < 0.5) with most 
+replicates are reproducing signals poorly, and should be considered for 
 removal.
 
 ```{r cor_idr_show}
