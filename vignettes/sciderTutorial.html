@@ -10,7 +10,7 @@
 
 <meta name="author" content="Michael Cole" />
 
-<meta name="date" content="2017-08-02" />
+<meta name="date" content="2017-08-05" />
 
 <title>scider: Single-Cell Investigation of Donor Expression Reproducibility</title>
 
@@ -51,7 +51,7 @@ document.addEventListener("DOMContentLoaded", function() {
 <div id="header">
 <h1 class="title">scider: Single-Cell Investigation of Donor Expression Reproducibility</h1>
 <h4 class="author"><em>Michael Cole</em></h4>
-<h4 class="date"><em>2017-08-02</em></h4>
+<h4 class="date"><em>2017-08-05</em></h4>
 </div>
 
 <h1>Contents</h1>
@@ -95,12 +95,12 @@ document.addEventListener("DOMContentLoaded", function() {
 -->
 <div id="introduction" class="section level1">
 <h1><span class="header-section-number">1</span> Introduction</h1>
-<p>As single-cell technologies mature and push the boundaries of study resolution and scale, they promise to enrich our understanding of xeveral complex biological systems. In the context of human disease, studies of single donors may prove very fruitful in the characterization and cataloging of diverse cell states. While single-subject studies can be used to generate bold hypotheses, these approaches do not guarantee results applicable to other individuals with one or more related phenotypes. More generally, if the goal of an analysis is to predict phenomena linked to a specific phenotype - in humans, mice, or other models with unknown or uncontrolled sources of variation - it is important to prioritize reproducibility across multiple sources.</p>
+<p>As single-cell technologies mature and push the boundaries of study resolution and scale, they promise to enrich our understanding of several complex biological systems. In the context of human disease, studies of single donors may prove very fruitful in the characterization and cataloging of diverse cell states. While single-subject studies can be used to generate bold hypotheses, these approaches do not guarantee results applicable to other individuals with one or more related phenotypes. More generally, if the goal of an analysis is to predict phenomena linked to a specific phenotype - in humans, mice, or other models with unknown or uncontrolled sources of variation - it is important to prioritize reproducibility across multiple sources.</p>
 <p>In this vignette, we will step through an analysis of single-cell RNA-Seq (scRNA-Seq) data collected from 3 human donors. In <code>Section 2</code>, we model coarse-grained structures in the expression data, discussing the problem of clustering cells across multiple donors. In <code>Section 3</code>, we begin to leverage donor information in order to identify “reproducible gene modules” - axes of expression variation that are common to all (or a subset of) individuals. <code>Section 4</code> introduces quantitative tools - based on the Irreproducible Discovery Rate <span class="citation">(Q. Li et al. 2011)</span>, for assessing signal reproducibility across donors. <code>Section 5</code> summarizes additional tools for IDR-based and IDR-free meta-analysis applicable to multi-donor studies. Finally, <code>Section 6</code> describes lower-level utilities for monitoring reproducibility across donors.</p>
 <div id="the-data-set-conventional-dendritic-cells-cdcs-in-elite-controllers-ecs" class="section level2">
 <h2><span class="header-section-number">1.1</span> The Data Set: Conventional Dendritic Cells (cDCs) in Elite Controllers (ECs)</h2>
 <p>The sheer diversity of factors that influence complex biological specimens typically results in several uncontrolled axes of experimental variation. When considering samples from human donors (and even those isolated from model systems such as mice), differences, for example, in genetics, behavior, exposure, environment, and/or collection point, can confound computational analyses that seek to identify and prioritize putative shared features. Here, we present a generally applicable framework, based on Irreproducible Discovery Rate (IDR), for nominating elements that are reproducibly shared across contrasts (i.e., groupings).</p>
-<p>More specifically, in this vignette, we consider a scRNA-Seq data set of cells collected from 3 Elite Controllers (ECs) – HIV-infected individuals with undetectable levels of circulating viremia. Previously, EC innate immune conventional dendritic cells (cDCs) have been shown to exhibit enhanced antiviral responses but the underlying mechanisms driving this cDC functional phenotype, the fraction of EC cDCs that assume it, and the biomarkers that enrich for it are unknown (for additional details, see accompanying manuscript Gayo et al., 2017 and Walker et al., 2013). In order to examine these questions, we exposed peripheral blood mononuclear cells (PBMCs) from each EC donor to pseudotyped HIV-1 for 48 hours ex vivo, and then isolated single cDCs and performed Smart-Seq2-based scRNA-Seq <span class="citation">(Picelli et al. 2013)</span>. As a control, matched PBMCs were exposed to media alone for the same period of time and processed.</p>
+<p>More specifically, in this vignette, we consider a scRNA-Seq data set of cells collected from 3 Elite Controllers (ECs) – HIV-infected individuals with undetectable levels of circulating viremia. Previously, EC innate immune conventional dendritic cells (cDCs) have been shown to exhibit enhanced antiviral responses but the underlying mechanisms driving this cDC functional phenotype, the fraction of EC cDCs that assume it, and the biomarkers that enrich for it are unknown (for additional details, see accompanying manuscript Gayo et al., 2017)<span class="citation">(Walker and Yu 2013)</span>. In order to examine these questions, we exposed peripheral blood mononuclear cells (PBMCs) from each EC donor to pseudotyped HIV-1 for 48 hours ex vivo, and then isolated single cDCs and performed Smart-Seq2-based scRNA-Seq <span class="citation">(Picelli et al. 2013)</span>. As a control, matched PBMCs were exposed to media alone for the same period of time and processed.</p>
 <p>Below, we load normalized and log-transformed scRNA-Seq expression estimates (see Gayo et al., Supplementary Information for additional details).</p>
 <pre class="r"><code>table_dir =  paste0(
   &quot;~/Dropbox/&quot;,
@@ -203,7 +203,7 @@ legend(
 <h1><span class="header-section-number">3</span> Reproducible Gene Modules</h1>
 <p>Given access to multiple samples of homologous single-cell populations, it may be important to identify common sets of co-varying genes or “reproducible gene modules.” Reproducibly correlated gene modules may inform us of novel biological mechanisms that drive these systems.</p>
 <p>If cell populations are heterogeneous, this kind of analysis may naturally follow a clustering step, uncovering reproducible modes of intra-cluster variation. Alternatively, reproducible correlation analysis may be done separately from clustering analysis altogether; reproducible modules can then serve as the basis for a reproducible inter-cluster manifold. We will consider this latter approach in this section.</p>
-<p>The <code>scider</code> package facilitates a three-step reproducible gene module analysis. The first step involves identifying gene-gene pairs that are “reproducibly correlated,” generating a gene-gene adjacency matrix. We will first consider a simple threshold-based reproducibility criterion and turn to other options later in the vignette. The second step is hub-identification in the reproducible gene-gene graph. The goal of this step is to identify genes that play critical roles in the reproducible co-variance structure. The third step is the least critical, clustering hub genes into “reproducible modules.”</p>
+<p>The <code>scider</code> package facilitates a three-step reproducible gene module analysis. The first step involves identifying gene-gene pairs that are “reproducibly correlated,” generating a gene-gene adjacency matrix. We will first consider a simple threshold-based reproducibility criterion and turn to other options later in the vignette. The second step is hub-identification in the reproducible gene-gene graph. The goal of this step is to identify genes that play critical roles in the reproducible co-variance structure. The third step involves clustering hub genes into “reproducible modules.”</p>
 <div id="defining-a-reproducible-gene-gene-adjacency-matrix" class="section level2">
 <h2><span class="header-section-number">3.1</span> Defining a Reproducible Gene-Gene Adjacency Matrix</h2>
 <p>In the first step or our analysis, we use <code>get.repro.thresh.adjacency</code> to generate a gene-gene adjacency matrix based on a simple correlation threshold criterion.</p>
@@ -343,7 +343,7 @@ legend(&quot;bottomright&quot;,
 </div>
 <div id="reproducibility-based-differential-expression-and-signature-analyses" class="section level1">
 <h1><span class="header-section-number">4</span> Reproducibility-Based Differential Expression and Signature Analyses</h1>
-<p>At this point in our analysis, we are beginning to study gene-level phenomena. For example, we may start to quantify the extent to which transcripts are up- or down-regulated in <code>c1</code> cells vs <code>c3-5</code> cells. How do we begin to address patient variability? For example, how do we find expression differences common to <code>c1</code> cells across donors? In this section, we will first consider a traditional method for modeling donor biases in the context of differential expression. Then we will contrast modeling results to the results of IDR analysis as outlined in <span class="citation">(Q. Li et al. 2011)</span>, taking the opportunity to discuss our contribution to pre-existing IDR tool set.</p>
+<p>At this point in our analysis, we are beginning to study gene-level phenomena. For example, we may start to quantify the extent to which transcripts are up- or down-regulated in <code>c1</code> cells vs <code>c3-5</code> cells. How do we begin to address patient variability? For example, how do we find expression differences common to <code>c1</code> cells across donors? In this section, we will first consider a traditional method for modeling donor biases in the context of differential expression. Then we will contrast modeling results to the results of IDR analysis as outlined in <span class="citation">(Q. Li et al. 2011)</span> while discussing our contribution to pre-existing IDR tool set.</p>
 <p>Following our discussion of differential expression, we will demonstrate the generalizability of <code>scider</code> IDR tools by applying them to two different signature analyses.</p>
 <div id="linear-models-of-differential-expression" class="section level2">
 <h2><span class="header-section-number">4.1</span> Linear Models of Differential Expression</h2>
@@ -725,7 +725,7 @@ tryCatch({idr_kruskal_pool_tlr = kruskalIDRm(x, r, g)},
 )</code></pre>
 <pre><code>## &lt;simpleError in est.IDRm(-log10(p_val_matrix[is_replicated, ]), mu = idr_mu,     sigma = idr_sigma, rho = idr_rho, p = idr_p, ...): all memberships numerically zero. try new initial params&gt;</code></pre>
 <p>This error indicates that the IDR fit converged to a point where all tests are called irreproducible with 100% probability. As the error message suggests, we could attempt to find a set of initial parameters for which the fit converges properly; on the other hand, it may be more straightforward to consider an alternative meta-analysis approach.</p>
-<p>The <code>kruskalMeta</code> function implements a routine similar to <code>kruskalIDR</code>, except that it applies a standard Stouffer p-value combination rather than estimating IDR values. While this method does not address reproducibility, it is not fit based, requiring no choices of initial parameters. Below, we present an example of how to run this command and visualize the results in a volcano plot.</p>
+<p>The <code>kruskalMeta</code> function implements a routine similar to <code>kruskalIDRm</code>, except that it applies a standard Stouffer p-value combination rather than estimating IDR values. While this method does not address reproducibility, it is not fit based, requiring no choices of initial parameters. Below, we present an example of how to run this command and visualize the results in a volcano plot.</p>
 <pre class="r"><code>meta_kruskal_pool_tlr = kruskalMeta(x, r, g)
 
 mean_sigs = aggregate(t(x), by = list(cluster = g, pool = r), FUN = mean)
@@ -947,6 +947,9 @@ points(unlist(idr$para), pch = 4, col = &quot;red&quot;)</code></pre>
 </div>
 <div id="ref-picelli2013">
 <p>Picelli, Simone, Åsa K Björklund, Omid R Faridani, Sven Sagasser, Gösta Winberg, and Rickard Sandberg. 2013. “Smart-Seq2 for Sensitive Full-Length Transcriptome Profiling in Single Cells.” <em>Nature Methods</em> 10: 1096–8.</p>
+</div>
+<div id="ref-walker2013">
+<p>Walker, Bruce D, and Xu G Yu. 2013. “Unravelling the Mechanisms of Durable Control of Hiv‑1.” <em>Nature Reviews Immunology</em> 13 (july): 487–98.</p>
 </div>
 </div>
 </div>

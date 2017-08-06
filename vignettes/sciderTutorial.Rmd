@@ -44,7 +44,7 @@ library(GEOquery)
 # Introduction
 
 As single-cell technologies mature and push the boundaries of study resolution 
-and scale, they promise to enrich our understanding of xeveral complex 
+and scale, they promise to enrich our understanding of several complex 
 biological systems. In the context of human disease, studies of single donors 
 may prove very fruitful in the characterization and cataloging of diverse cell 
 states. While single-subject studies can be used to generate bold hypotheses, 
@@ -59,12 +59,12 @@ In this vignette, we will step through an analysis of single-cell RNA-Seq
 coarse-grained structures in the expression data, discussing the problem of 
 clustering cells across multiple donors. In `Section 3`, we begin to leverage 
 donor information in order to identify "reproducible gene modules" - axes of 
-expression variation that are common to all (or a subset of) individuals. `Section 4` 
-introduces quantitative tools - based on the Irreproducible Discovery Rate 
-[@li2011], for assessing signal reproducibility across donors. `Section 5`
-summarizes additional tools for IDR-based and IDR-free meta-analysis applicable
-to multi-donor studies. Finally, `Section 6` describes lower-level utilities
-for monitoring reproducibility across donors.
+expression variation that are common to all (or a subset of) individuals.
+`Section 4` introduces quantitative tools - based on the Irreproducible
+Discovery Rate [@li2011], for assessing signal reproducibility across donors.
+`Section 5` summarizes additional tools for IDR-based and IDR-free
+meta-analysis applicable to multi-donor studies. Finally, `Section 6` describes
+lower-level utilities for monitoring reproducibility across donors.
 
 ## The Data Set: Conventional Dendritic Cells (cDCs) in Elite Controllers (ECs)
 
@@ -85,7 +85,7 @@ conventional dendritic cells (cDCs) have been shown to exhibit enhanced
 antiviral responses but the underlying mechanisms driving this cDC functional 
 phenotype, the fraction of EC cDCs that assume it, and the biomarkers that 
 enrich for it are unknown (for additional details, see accompanying manuscript 
-Gayo et al., 2017 and Walker et al., 2013). In order to examine these 
+Gayo et al., 2017)[@walker2013]. In order to examine these 
 questions, we exposed peripheral blood mononuclear cells (PBMCs) from each EC
 donor to pseudotyped HIV-1 for 48 hours ex vivo, and then isolated single cDCs
 and performed Smart-Seq2-based scRNA-Seq [@picelli2013]. As a control, matched 
@@ -290,7 +290,7 @@ first consider a simple threshold-based reproducibility criterion and turn to
 other options later in the vignette. The second step is hub-identification in 
 the reproducible gene-gene graph. The goal of this step is to identify genes 
 that play critical roles in the reproducible co-variance structure. The third 
-step is the least critical, clustering hub genes into "reproducible modules."
+step involves clustering hub genes into "reproducible modules."
 
 ## Defining a Reproducible Gene-Gene Adjacency Matrix
 
@@ -521,8 +521,8 @@ patient variability? For example, how do we find expression differences common
 to `c1` cells across donors? In this section, we will first consider a 
 traditional method for modeling donor biases in the context of differential 
 expression. Then we will contrast modeling results to the results of IDR 
-analysis as outlined in [@li2011], taking the opportunity to discuss our 
-contribution to pre-existing IDR tool set.
+analysis as outlined in [@li2011] while discussing our contribution to
+pre-existing IDR tool set.
 
 Following our discussion of differential expression, we will demonstrate the 
 generalizability of `scider` IDR tools by applying them to two different 
@@ -1117,7 +1117,7 @@ could attempt to find a set of initial parameters for which the fit converges
 properly; on the other hand, it may be more straightforward to consider an 
 alternative meta-analysis approach.
 
-The `kruskalMeta` function implements a routine similar to `kruskalIDR`, except
+The `kruskalMeta` function implements a routine similar to `kruskalIDRm`, except
 that it applies a standard Stouffer p-value combination rather than estimating
 IDR values. While this method does not address reproducibility, it is not fit
 based, requiring no choices of initial parameters. Below, we present an example
