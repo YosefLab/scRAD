@@ -1,7 +1,7 @@
-Package: scider
+Package: scRAD
 Version: 0.99.0
-Title: Single-Cell Investigation of Donor Expression Reproducibility
-Description: scrap is an R package implementing
+Title: Single-Cell Reproducibility Across Donors
+Description: scRAD is an R package implementing
 	several analyses from Gayo et al. 2017.
 Authors@R: c(person("Michael", "Cole", email = "mbeloc@gmail.com",
 	          role = c("aut", "cre", "cph")))
@@ -44,5 +44,5 @@ LazyLoad: yes
 biocViews:
   Transcriptomics,
   SingleCell
-BugReports: https://github.com/YosefLab/scrap/issues
+BugReports: https://github.com/YosefLab/scRAD/issues
 RoxygenNote: 6.0.1
