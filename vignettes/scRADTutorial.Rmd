@@ -702,7 +702,9 @@ In the `scRAD` package we have modified code from the CRAN
 [idr](https://cran.r-project.org/web/packages/idr/index.html) package to handle
 more than 2 replicates, as prescribed in the authors' original manuscript. The 
 many-replicate `est.IDRm` function implemented in `scRAD` is adapted from the 
-2-replicate `est.IDR` in `idr`, including some new error messages.
+2-replicate `est.IDR` in `idr`, including some new error messages. Derivations 
+behind the extension to many replicates can be found in the Appendix of the
+Gayo et al. Supplementary Information.
 
 Using this broader functionality, we may choose to perform a similar analysis
 as in the previous subsection, but treat each donor as a replicate pool.
