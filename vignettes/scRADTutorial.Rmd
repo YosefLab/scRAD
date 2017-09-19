@@ -99,15 +99,15 @@ Below, we load normalized and log-transformed scRNA-Seq expression estimates
 table_dir =  paste0(
   "~/Dropbox/",
   "2016 Gayo Single Cell DC HIV/",
-  "NBT Submission/",
-  "Submission Files/Tables/"
+  "Sci Immunol Submission/",
+  "Supplementary Online Materials/Supplementary Tables/"
   )
 
 # Load scRNA-Seq (Normalized and log-transformed)
 df_meta = read.xlsx(xlsxFile = paste0(table_dir,
-                                 "Gayo_NBT_Table_S1.xlsx"))
+                                 "Gayo_Revised_Table_S1.xlsx"))
 df_expr = read.xlsx(xlsxFile = paste0(table_dir,
-                                 "Gayo_NBT_Table_S2.xlsx"))
+                                 "Gayo_Revised_Table_S2.xlsx"))
 
 is_late = df_meta$timepoint == "48H"
 donor = factor(df_meta$patient[is_late])
