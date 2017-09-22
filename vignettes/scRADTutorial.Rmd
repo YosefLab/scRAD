@@ -1167,6 +1167,64 @@ One of the results of this analysis is that, compared to `c3-5` cells, `c1`
 cells are significantly more similar to PolyI:C induced mouse BMDCs. This may 
 suggest that PolyI:C induction could enrich for `c1` cells over `c3-5` cells.
 
+We can apply the same analysis to RNA-Seq data collected from human DCs exposed
+to TLR agonist for 48 hours, published in the accompanying `Table S8`:
+
+```{r human_tlr2}
+
+# Load Normalized log(TPM + 1) Values
+df_tlr = read.xlsx(xlsxFile = paste0(table_dir,
+                                 "Gayo_Revised_Table_S8.xlsx"))
+tlr_expr = t(df_tlr[,-1])
+colnames(tlr_expr) = df_tlr[,1]
+
+sc_expr = lexpr[rownames(tlr_expr),]
+
+# TLR Stimulation Scores
+stim_scores = cor(tlr_expr - rowMeans(tlr_expr),
+                 sc_expr - rowMeans(sc_expr))
+x = stim_scores[, is_included]
+
+# Meta Analysis
+meta_kruskal_pool_tlr = kruskalMeta(x, r, g)
+
+mean_sigs = aggregate(t(x), by = list(cluster = g, pool = r), FUN = mean)
+diff_scores = colMeans(mean_sigs[, -c(1:2)][mean_sigs$cluster == "c1", ] -
+                 mean_sigs[, -c(1:2)][mean_sigs$cluster != "c1", ])
+
+is_sig = meta_kruskal_pool_tlr$FDR < 0.001
+
+FDR_max = apply(apply(meta_kruskal_pool_tlr$kruskal_pvals,2,
+                      p.adjust,method = "fdr"),1,max)
+is_reproduced = FDR_max < 0.01
+
+plot(
+  diff_scores[rownames(meta_kruskal_pool_tlr$kruskal_pvals)],
+  -log10(meta_kruskal_pool_tlr$FDR),
+  pch = 22 - is_reproduced,
+  xlim = c(-.3,.3),
+  ylim = c(0,40),
+  cex = 2,
+  col = c(1,"blue")[is_reproduced + 1],
+  bg = c(1,brewer.pal(6,"Set1")[c(4,5,3,6)]),
+  main = paste("(Unweighted) Human TLR Signature Analysis: c1 vs c3-5"),
+  ylab = expression('-log'[10]*'(FDR'[meta]*')'),
+  xlab = "Mean Difference in TLR Stimulation Score"
+)
+text(labels = rownames(x),pos = 3,
+     col = c(1,"blue")[is_reproduced + 1],
+  diff_scores[rownames(meta_kruskal_pool_tlr$kruskal_pvals)],
+  -log10(meta_kruskal_pool_tlr$FDR))
+abline(h = -log10(0.01), col = "red", lty = 2)
+legend("topright",legend = c("Reproduced","Not Reproduced"), 
+       pch = c(21,22), pt.bg = "grey", pt.cex = 2, col = c(1,"blue")[2:1])
+
+```
+
+The results are similar to those of the mouse signature analysis, specifically 
+in that `c1` cells are significantly more similar to TLR3-induced (PolyI:C) 
+human DCs than `c3-5`.
+
 ## IDR-Based Reproducible Module Analysis
 
 In the final part of this section we will introduce one more IDR-based analysis
