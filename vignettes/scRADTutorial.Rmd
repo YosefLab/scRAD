@@ -26,7 +26,6 @@ options(getClass.msg=FALSE)
 
 set.seed(1237) ## for reproducibility
 
-library(openxlsx)
 library(scRAD)
 library(SummarizedExperiment)
 library(Rtsne)
@@ -96,23 +95,10 @@ Below, we load normalized and log-transformed scRNA-Seq expression estimates
 
 ```{r datain}
 
-table_dir =  paste0(
-  "~/Dropbox/",
-  "2016 Gayo Single Cell DC HIV/",
-  "Sci Immunol Submission/",
-  "Supplementary Online Materials/Supplementary Tables/"
-  )
-
-# Load scRNA-Seq (Normalized and log-transformed)
-df_meta = read.xlsx(xlsxFile = paste0(table_dir,
-                                 "Gayo_Revised_Table_S1.xlsx"))
-df_expr = read.xlsx(xlsxFile = paste0(table_dir,
-                                 "Gayo_Revised_Table_S2.xlsx"))
-
-is_late = df_meta$timepoint == "48H"
-donor = factor(df_meta$patient[is_late])
-lexpr = t(as.matrix(df_expr[is_late,-1]))
-colnames(lexpr) = df_expr[is_late,1]
+data("gayoSCDC")
+is_late <- gayoSCDC$timepoint == "48H"
+donor = factor(gayoSCDC$patient[is_late])
+lexpr = assay(gayoSCDC)[,is_late]
 lexpr = lexpr[apply(lexpr, 1, var) > 0, ]
 
 ```
@@ -802,9 +788,12 @@ r_de = factor(c(rep("P12",2),"P3")[donor])
 search_page = "http://www.proteinatlas.org/search"
 search_terms = "protein_class%3APredicted+membrane+proteins"
 query_format = "format=tab"
-dbdat = read.table(
-  paste0(search_page,"/",search_terms,"?",query_format),
-           sep = "\t",quote = "", header = TRUE)
+temp <- tempfile()
+download.file(url = paste0(search_page,"/",search_terms,"?",query_format),
+              destfile = temp)
+dbdat = read.table(gzfile(temp),sep = "\t",quote = "", header = TRUE,
+                   fill = NA)
+unlink(temp)
 external_markers = intersect(as.character(dbdat$Gene),rownames(x))
 
 markers = getMarkers(x = x, r = r, r_de = r_de, pair_pthresh = 0.01474,
@@ -1173,10 +1162,8 @@ to TLR agonist for 48 hours, published in the accompanying `Table S8`:
 ```{r human_tlr2}
 
 # Load Normalized log(TPM + 1) Values
-df_tlr = read.xlsx(xlsxFile = paste0(table_dir,
-                                 "Gayo_Revised_Table_S8.xlsx"))
-tlr_expr = t(df_tlr[,-1])
-colnames(tlr_expr) = df_tlr[,1]
+data("gayoBulkTLR")
+tlr_expr = assay(gayoBulkTLR)
 
 sc_expr = lexpr[rownames(tlr_expr),]
 
