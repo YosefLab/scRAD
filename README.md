@@ -1,6 +1,6 @@
 # scRAD: Single-Cell Reproducibility Across Donors
 <p align="center">
-  <img src="scRAD_small.png" width="350"/>
+  <img src="misc/scRAD_small.png" width="350"/>
 </p>
 
 As single-cell technologies mature and push the boundaries of study resolution and scale, they promise to enrich our understanding of several complex biological systems. In the context of human disease, studies of single donors may prove very fruitful in the characterization and cataloging of diverse cell states. While single-subject studies can be used to generate bold hypotheses, these approaches do not guarantee results applicable to other individuals with one or more related phenotypes. More generally, if the goal of an analysis is to predict phenomena linked to a specific phenotype - in humans, mice, or other models with unknown or uncontrolled sources of variation - it is important to prioritize reproducibility across multiple sources.
